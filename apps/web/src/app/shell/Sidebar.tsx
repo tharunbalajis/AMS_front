@@ -64,7 +64,8 @@ const groups: NavGroup[] = [
       { label: "Pet Management", to: "/residents/pets", permission: "residents" },
       { label: "Move-In / Move-Out", to: "/residents/move", permission: "residents" },
       { label: "Resident QR Pass", to: "/residents/qr-pass", permission: "residents" },
-      { label: "Bulk Import", to: "/residents/import", permission: "residents" }
+      { label: "Bulk Import", to: "/residents/import", permission: "residents" },
+      { label: "Occupancy Map", to: "/residents/heatmap", permission: "residents" }
     ]
   },
   {

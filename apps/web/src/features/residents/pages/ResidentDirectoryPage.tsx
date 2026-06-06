@@ -2,11 +2,12 @@
 import { Button, DataTable, SearchBox, Select, StatusBadge } from "@ams/ui";
 import { normalizeList } from "@ams/utils";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Download, Loader2, UserPlus, X } from "lucide-react";
+import { Download, FileDown, Loader2, UserPlus, X } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 import { residentsApi } from "@/api/residents.api";
 import { useScope } from "@/app/scope/ScopeProvider";
+import { BulkActionBar } from "../../shared/components/BulkActionBar";
 
 type ResidentForm = {
   full_name: string;
@@ -316,6 +317,26 @@ export function ResidentDirectoryPage() {
   const [type, setType] = useState("");
   const [status, setStatus] = useState("");
   const [addOpen, setAddOpen] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [exporting, setExporting] = useState(false);
+
+  const handleExport = async () => {
+    setExporting(true);
+    try {
+      await residentsApi.exportCsv(society?.society_id);
+      toast.success("CSV downloaded");
+    } catch {
+      toast.error("Export failed");
+    } finally {
+      setExporting(false);
+    }
+  };
+
+  const toggleSelect = (id: string) =>
+    setSelectedIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
+
+  const toggleAll = () =>
+    setSelectedIds(prev => prev.length === rows.length ? [] : rows.map(r => String(r.id ?? r.resident_id ?? "")));
 
   const { data: raw, isLoading } = useQuery({
     queryKey: ["residents", queryParams, search, type, status],
@@ -384,9 +405,9 @@ export function ResidentDirectoryPage() {
         </div>
 
         <div className="flex shrink-0 gap-2">
-          <Button variant="secondary">
-            <Download size={15} className="mr-1" />
-            Import
+          <Button variant="secondary" onClick={handleExport} disabled={exporting}>
+            {exporting ? <Loader2 size={15} className="mr-1 animate-spin" /> : <FileDown size={15} className="mr-1" />}
+            Export CSV
           </Button>
 
           <Button onClick={() => setAddOpen(true)}>
@@ -426,6 +447,19 @@ export function ResidentDirectoryPage() {
         </Select>
       </div>
 
+      <div className="mb-2 flex items-center gap-2">
+        <input
+          type="checkbox"
+          checked={rows.length > 0 && selectedIds.length === rows.length}
+          onChange={toggleAll}
+          className="h-4 w-4 rounded border-gray-300"
+          title="Select all"
+        />
+        {selectedIds.length > 0 && (
+          <span className="text-xs text-gray-500">{selectedIds.length} selected</span>
+        )}
+      </div>
+
       <DataTable
         title="Residents"
         rows={rows.map((row, index) => ({
@@ -438,6 +472,22 @@ export function ResidentDirectoryPage() {
         }))}
         isLoading={isLoading}
         columns={[
+          {
+            key: "__select" as never,
+            header: "",
+            render: (row) => {
+              const id = String(row.id ?? row.resident_id ?? "");
+              return (
+                <input
+                  type="checkbox"
+                  checked={selectedIds.includes(id)}
+                  onChange={() => toggleSelect(id)}
+                  className="h-4 w-4 rounded border-gray-300"
+                  onClick={e => e.stopPropagation()}
+                />
+              );
+            }
+          },
           {
             key: "full_name",
             header: "NAME",
@@ -510,6 +560,21 @@ export function ResidentDirectoryPage() {
           onClose={() => setAddOpen(false)}
         />
       )}
+
+      <BulkActionBar
+        selectedIds={selectedIds}
+        entityLabel="resident"
+        onClearSelection={() => setSelectedIds([])}
+        actions={[
+          {
+            label: "Export Selected",
+            onClick: async () => {
+              toast.info(`Exporting ${selectedIds.length} residents`);
+              await residentsApi.exportCsv(society?.society_id);
+            }
+          }
+        ]}
+      />
     </div>
   );
 }

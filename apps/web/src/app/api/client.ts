@@ -51,7 +51,24 @@ export const scopeApi = {
   }
 };
 
+export type DashboardStats = {
+  total_units: number;
+  occupied_units: number;
+  occupancy_pct: number;
+  total_residents: number;
+  open_complaints: number;
+  pending_payments: number;
+  visitors_today: number;
+  active_staff: number;
+};
+
 export const dashboardApi = {
+  async stats(societyId?: number): Promise<DashboardStats> {
+    const { data } = await http.get<DashboardStats>("/dashboard/stats", {
+      params: societyId ? { society_id: societyId } : {}
+    });
+    return data;
+  },
   async metrics(params: ApiListParams) {
     const { data } = await http.get<{ data: DashboardMetrics }>("/dashboard/metrics", { params: { period: params.period ?? "month" } });
     return data.data;
@@ -123,6 +140,24 @@ export const rolesApi = {
     const { data } = await http.post<{ data: RoleUser }>(`/roles/${roleId}/users`, payload);
     return data.data;
   }
+};
+
+export const searchApi = {
+  async search(q: string, societyId?: number) {
+    const { data } = await http.get<{
+      residents: Record<string, unknown>[];
+      units: Record<string, unknown>[];
+      complaints: Record<string, unknown>[];
+    }>("/search", { params: { q, ...(societyId ? { society_id: societyId } : {}) } });
+    return data;
+  }
+};
+
+export const unitsApi = {
+  heatmap: (societyId?: number) =>
+    http.get<{ society_id: number; blocks: Record<string, unknown>[] }>("/units/heatmap", {
+      params: societyId ? { society_id: societyId } : {}
+    }),
 };
 
 export function resourceApi(endpoint: string) {

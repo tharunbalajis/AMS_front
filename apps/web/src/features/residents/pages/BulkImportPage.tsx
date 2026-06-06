@@ -1,114 +1,264 @@
-import { Button, Card } from "@ams/ui";
-import { Download, FileSpreadsheet, Upload, X } from "lucide-react";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useRef, useState } from "react";
+import { residentsApi } from "../../../api/residents.api";
+import { useScope } from "../../../app/scope/ScopeProvider";
+import { CheckCircle, Download, Upload, AlertCircle, Loader2 } from "lucide-react";
+
+type Step = "upload" | "preview" | "confirm";
+
+const CSV_HEADERS = ["full_name", "mobile", "email", "block_name", "unit_number", "floor_number", "resident_type", "move_in_date", "move_out_date", "is_active"];
+
+function downloadTemplate() {
+  const sample = [
+    CSV_HEADERS.join(","),
+    "John Doe,9999999999,john@example.com,Block A,101,1,OWNER,2024-01-01,,true",
+    "Jane Tenant,8888888888,jane@example.com,Block B,202,2,TENANT,2024-02-01,2025-01-31,true",
+  ].join("\r\n");
+  const blob = new Blob([sample], { type: "text/csv" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = "residents_import_template.csv";
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function parseCsv(text: string): Record<string, string>[] {
+  const lines = text.split(/\r?\n/).filter(l => l.trim());
+  if (lines.length < 2) return [];
+  const headers = lines[0].split(",").map(h => h.trim());
+  return lines.slice(1).map(line => {
+    const vals = line.split(",").map(v => v.trim());
+    const row: Record<string, string> = {};
+    headers.forEach((h, i) => { row[h] = vals[i] ?? ""; });
+    return row;
+  });
+}
 
 export function BulkImportPage() {
-  const [dragOver, setDragOver] = useState(false);
-  const [file, setFile] = useState<File | null>(null);
+  const { society } = useScope();
+  const queryClient = useQueryClient();
   const fileRef = useRef<HTMLInputElement>(null);
 
-  function handleDrop(e: React.DragEvent) {
-    e.preventDefault();
-    setDragOver(false);
-    const dropped = e.dataTransfer.files[0];
-    if (dropped && (dropped.name.endsWith(".csv") || dropped.name.endsWith(".xlsx"))) {
-      setFile(dropped);
-    }
-  }
+  const [step, setStep] = useState<Step>("upload");
+  const [rawRows, setRawRows] = useState<Record<string, string>[]>([]);
+  const [validRows, setValidRows] = useState<Record<string, unknown>[]>([]);
+  const [invalidRows, setInvalidRows] = useState<Record<string, unknown>[]>([]);
+  const [fileName, setFileName] = useState("");
+  const [done, setDone] = useState<{ inserted: number } | null>(null);
+
+  void society;
+
+  const previewMutation = useMutation({
+    mutationFn: (rows: Record<string, string>[]) =>
+      residentsApi.importPreview(rows as unknown as Record<string, unknown>[]),
+    onSuccess: ({ data }) => {
+      setValidRows(data.valid ?? []);
+      setInvalidRows(data.invalid ?? []);
+      setStep("preview");
+    },
+  });
+
+  const confirmMutation = useMutation({
+    mutationFn: (rows: Record<string, unknown>[]) => residentsApi.importConfirm(rows),
+    onSuccess: ({ data }) => {
+      setDone({ inserted: data.inserted });
+      setStep("confirm");
+      queryClient.invalidateQueries({ queryKey: ["residents"] });
+    },
+  });
+
+  const handleFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setFileName(file.name);
+    const reader = new FileReader();
+    reader.onload = ev => {
+      const rows = parseCsv(ev.target?.result as string);
+      setRawRows(rows);
+    };
+    reader.readAsText(file);
+  };
+
+  const handlePreview = () => {
+    if (rawRows.length === 0) return;
+    previewMutation.mutate(rawRows);
+  };
+
+  const handleConfirm = () => {
+    confirmMutation.mutate(validRows);
+  };
+
+  const reset = () => {
+    setStep("upload");
+    setRawRows([]);
+    setValidRows([]);
+    setInvalidRows([]);
+    setFileName("");
+    setDone(null);
+    if (fileRef.current) fileRef.current.value = "";
+  };
+
+  const stepBadge = (n: number, label: string, active: boolean) => (
+    <div className={`flex items-center gap-2 ${active ? "text-blue-600 font-semibold" : "text-gray-400"}`}>
+      <span className={`flex h-6 w-6 items-center justify-center rounded-full text-xs font-bold ${active ? "bg-blue-600 text-white" : "bg-gray-200 text-gray-500"}`}>{n}</span>
+      <span className="text-sm">{label}</span>
+    </div>
+  );
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-start justify-between gap-4">
+    <div className="max-w-4xl mx-auto space-y-6">
+      <div className="flex items-center justify-between">
         <div>
-          <p className="text-sm text-gray-500">Residents / Bulk Import</p>
-          <h1 className="text-2xl font-bold text-gray-900">Bulk Import Residents</h1>
-          <p className="mt-1 text-sm text-gray-500">Upload a CSV or Excel file to import multiple residents at once</p>
+          <h1 className="text-xl font-bold text-gray-900">Bulk Import Residents</h1>
+          <p className="text-sm text-gray-500 mt-1">Upload a CSV to import residents in bulk</p>
         </div>
-        <Button variant="secondary"><Download size={15} className="mr-1" />Download Template</Button>
+        <button
+          onClick={downloadTemplate}
+          className="flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+        >
+          <Download size={15} /> Download Template
+        </button>
       </div>
 
-      <div className="grid gap-6 xl:grid-cols-[1fr_340px]">
-        <Card className="p-6">
-          <input
-            ref={fileRef}
-            type="file"
-            accept=".csv,.xlsx,.xls"
-            className="hidden"
-            onChange={(e) => { if (e.target.files?.[0]) setFile(e.target.files[0]); }}
-          />
+      <div className="flex items-center gap-6 rounded-xl border border-gray-200 bg-white px-6 py-4">
+        {stepBadge(1, "Upload CSV", step === "upload")}
+        <div className="h-px flex-1 bg-gray-200" />
+        {stepBadge(2, "Preview & Validate", step === "preview")}
+        <div className="h-px flex-1 bg-gray-200" />
+        {stepBadge(3, "Done", step === "confirm")}
+      </div>
 
-          {file ? (
-            <div className="flex items-center gap-4 rounded-xl border border-blue-200 bg-blue-50 p-6">
-              <div className="rounded-lg bg-blue-100 p-3 text-blue-600">
-                <FileSpreadsheet size={28} />
-              </div>
-              <div className="flex-1">
-                <p className="font-semibold text-gray-900">{file.name}</p>
-                <p className="text-sm text-gray-500">{(file.size / 1024).toFixed(1)} KB · Ready to import</p>
-              </div>
-              <button type="button" onClick={() => setFile(null)} className="rounded-md p-1 text-gray-400 hover:text-red-500">
-                <X size={18} />
-              </button>
+      {step === "upload" && (
+        <div className="rounded-xl border border-dashed border-gray-300 bg-white p-10 text-center">
+          <Upload size={32} className="mx-auto mb-3 text-gray-400" />
+          <p className="text-sm font-medium text-gray-700 mb-1">Drag & drop or click to select a CSV file</p>
+          <p className="text-xs text-gray-400 mb-4">Required columns: full_name, mobile, block_name, unit_number, resident_type</p>
+          <input ref={fileRef} type="file" accept=".csv" className="hidden" onChange={handleFile} id="csv-upload" />
+          <label htmlFor="csv-upload" className="cursor-pointer inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700">
+            <Upload size={15} /> Choose File
+          </label>
+          {fileName && (
+            <div className="mt-4 text-sm text-gray-600">
+              Selected: <span className="font-medium">{fileName}</span> — {rawRows.length} data rows
             </div>
-          ) : (
-            <div
-              className={`flex flex-col items-center justify-center rounded-xl border-2 border-dashed p-16 text-center transition ${dragOver ? "border-blue-400 bg-blue-50" : "border-gray-300 hover:border-gray-400"}`}
-              onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
-              onDragLeave={() => setDragOver(false)}
-              onDrop={handleDrop}
+          )}
+          {rawRows.length > 0 && (
+            <button
+              onClick={handlePreview}
+              disabled={previewMutation.isPending}
+              className="mt-4 flex mx-auto items-center gap-2 rounded-lg bg-green-600 px-5 py-2 text-sm font-medium text-white hover:bg-green-700 disabled:opacity-60"
             >
-              <div className="mb-4 rounded-xl bg-gray-100 p-4">
-                <Upload size={32} className="text-gray-400" />
-              </div>
-              <p className="text-base font-semibold text-gray-700">Drag and drop your file here</p>
-              <p className="mt-1 text-sm text-gray-500">Supports CSV and Excel files (.csv, .xlsx)</p>
-              <Button variant="secondary" className="mt-5" onClick={() => fileRef.current?.click()}>Browse Files</Button>
-            </div>
+              {previewMutation.isPending ? <Loader2 size={15} className="animate-spin" /> : null}
+              Validate & Preview
+            </button>
           )}
-
-          {file && (
-            <div className="mt-5 flex gap-3">
-              <Button variant="secondary" className="flex-1" onClick={() => setFile(null)}>Cancel</Button>
-              <Button className="flex-1"><Upload size={15} className="mr-1" />Start Import</Button>
-            </div>
+          {previewMutation.isError && (
+            <p className="mt-3 text-sm text-red-600">Validation failed. Please try again.</p>
           )}
-        </Card>
-
-        <div className="space-y-4">
-          <Card className="p-5">
-            <h3 className="font-semibold text-gray-900">Import Guidelines</h3>
-            <ul className="mt-3 space-y-2 text-sm text-gray-600">
-              <li className="flex items-start gap-2"><span className="mt-0.5 text-blue-500">•</span>Use the provided template for correct column mapping</li>
-              <li className="flex items-start gap-2"><span className="mt-0.5 text-blue-500">•</span>Required: Name, Unit Number, Block, Resident Type</li>
-              <li className="flex items-start gap-2"><span className="mt-0.5 text-blue-500">•</span>Resident Type must be OWNER or TENANT</li>
-              <li className="flex items-start gap-2"><span className="mt-0.5 text-blue-500">•</span>Mobile numbers must be 10 digits</li>
-              <li className="flex items-start gap-2"><span className="mt-0.5 text-blue-500">•</span>Dates in DD-MM-YYYY format</li>
-              <li className="flex items-start gap-2"><span className="mt-0.5 text-blue-500">•</span>Maximum 500 rows per import</li>
-            </ul>
-          </Card>
-
-          <Card className="p-5">
-            <h3 className="font-semibold text-gray-900">Recent Imports</h3>
-            <div className="mt-3 space-y-2">
-              {[
-                { date: "2024-01-10", count: 45, status: "Success" },
-                { date: "2024-01-05", count: 12, status: "Success" },
-                { date: "2023-12-28", count: 8, status: "Failed" },
-              ].map((imp) => (
-                <div key={imp.date} className="flex items-center justify-between rounded-lg bg-gray-50 px-3 py-2 text-sm">
-                  <div>
-                    <p className="font-medium">{imp.date}</p>
-                    <p className="text-xs text-gray-500">{imp.count} records</p>
-                  </div>
-                  <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${imp.status === "Success" ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"}`}>
-                    {imp.status}
-                  </span>
-                </div>
-              ))}
-            </div>
-          </Card>
         </div>
-      </div>
+      )}
+
+      {step === "preview" && (
+        <div className="space-y-4">
+          <div className="flex gap-4">
+            <div className="flex-1 rounded-xl border border-green-200 bg-green-50 p-4 text-center">
+              <p className="text-2xl font-bold text-green-700">{validRows.length}</p>
+              <p className="text-xs text-green-600 font-medium">Valid rows</p>
+            </div>
+            <div className="flex-1 rounded-xl border border-red-200 bg-red-50 p-4 text-center">
+              <p className="text-2xl font-bold text-red-700">{invalidRows.length}</p>
+              <p className="text-xs text-red-600 font-medium">Invalid rows (skipped)</p>
+            </div>
+          </div>
+
+          {invalidRows.length > 0 && (
+            <div className="rounded-xl border border-red-200 bg-white overflow-hidden">
+              <div className="flex items-center gap-2 px-4 py-3 border-b border-red-100 bg-red-50">
+                <AlertCircle size={15} className="text-red-600" />
+                <p className="text-sm font-semibold text-red-700">Rows with errors</p>
+              </div>
+              <div className="overflow-x-auto max-h-48">
+                <table className="w-full text-xs">
+                  <thead className="bg-gray-50 text-gray-600">
+                    <tr>
+                      <th className="px-3 py-2 text-left">Row</th>
+                      <th className="px-3 py-2 text-left">Name</th>
+                      <th className="px-3 py-2 text-left">Errors</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {invalidRows.map((r: Record<string, unknown>, i) => (
+                      <tr key={i} className="border-t border-gray-100">
+                        <td className="px-3 py-2 text-gray-500">{String(r._row ?? "")}</td>
+                        <td className="px-3 py-2">{String(r.full_name ?? "—")}</td>
+                        <td className="px-3 py-2 text-red-600">{(r._errors as string[])?.join("; ")}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          {validRows.length > 0 && (
+            <div className="rounded-xl border border-gray-200 bg-white overflow-hidden">
+              <div className="flex items-center gap-2 px-4 py-3 border-b border-gray-100">
+                <CheckCircle size={15} className="text-green-600" />
+                <p className="text-sm font-semibold text-gray-700">Valid rows — will be imported</p>
+              </div>
+              <div className="overflow-x-auto max-h-64">
+                <table className="w-full text-xs">
+                  <thead className="bg-gray-50 text-gray-600">
+                    <tr>
+                      {["Name", "Mobile", "Block", "Unit", "Type", "Move-in"].map(h => (
+                        <th key={h} className="px-3 py-2 text-left">{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {validRows.map((r: Record<string, unknown>, i) => (
+                      <tr key={i} className="border-t border-gray-100 hover:bg-gray-50">
+                        <td className="px-3 py-2 font-medium">{String(r.full_name ?? "")}</td>
+                        <td className="px-3 py-2">{String(r.mobile_primary ?? "")}</td>
+                        <td className="px-3 py-2">{String(r._block_name ?? "")}</td>
+                        <td className="px-3 py-2">{String(r._unit_number ?? "")}</td>
+                        <td className="px-3 py-2">{String(r.resident_type ?? "")}</td>
+                        <td className="px-3 py-2">{String(r.move_in_date ?? "—")}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          <div className="flex gap-3 justify-end">
+            <button onClick={reset} className="rounded-lg border border-gray-200 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">
+              Start Over
+            </button>
+            <button
+              onClick={handleConfirm}
+              disabled={validRows.length === 0 || confirmMutation.isPending}
+              className="flex items-center gap-2 rounded-lg bg-blue-600 px-5 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-60"
+            >
+              {confirmMutation.isPending ? <Loader2 size={15} className="animate-spin" /> : null}
+              Import {validRows.length} Residents
+            </button>
+          </div>
+        </div>
+      )}
+
+      {step === "confirm" && done && (
+        <div className="rounded-xl border border-green-200 bg-green-50 p-10 text-center space-y-4">
+          <CheckCircle size={48} className="mx-auto text-green-600" />
+          <h2 className="text-xl font-bold text-green-800">Import Complete!</h2>
+          <p className="text-sm text-green-700">{done.inserted} residents imported successfully.</p>
+          <button onClick={reset} className="rounded-lg bg-white border border-green-300 px-5 py-2 text-sm font-medium text-green-700 hover:bg-green-50">
+            Import More
+          </button>
+        </div>
+      )}
     </div>
   );
 }

@@ -4,6 +4,7 @@ import { Navigate, Route, Routes } from "react-router-dom";
 import { useAuth } from "./auth/AuthProvider";
 import { ScopeProvider } from "./scope/ScopeProvider";
 import { AppShell } from "./shell/AppShell";
+import { FeatureErrorBoundary } from "../features/shared/components/FeatureErrorBoundary";
 import { LoginPage } from "../features/auth/pages/LoginPage";
 import { AuditLogsPage } from "../features/audit-logs/pages/AuditLogsPage";
 import { DashboardPage } from "../features/dashboard/pages/DashboardPage";
@@ -23,6 +24,7 @@ import { PetManagementPage } from "../features/residents/pages/PetManagementPage
 import { MoveInOutPage } from "../features/residents/pages/MoveInOutPage";
 import { ResidentQRPassPage } from "../features/residents/pages/ResidentQRPassPage";
 import { BulkImportPage } from "../features/residents/pages/BulkImportPage";
+import { OccupancyHeatmapPage } from "../features/residents/pages/OccupancyHeatmapPage";
 
 // Visitor pages
 import { SecurityDashboardPage } from "../features/visitors/pages/SecurityDashboardPage";
@@ -75,7 +77,9 @@ function RequireAuth({ children }: { children: ReactElement }) {
 
 function PermissionRoute({ permission, children }: { permission: Permission; children: ReactElement }) {
   const { permissions } = useAuth();
-  return hasPermission(permissions, permission) ? children : <Navigate to="/dashboard" replace />;
+  return hasPermission(permissions, permission)
+    ? <FeatureErrorBoundary>{children}</FeatureErrorBoundary>
+    : <Navigate to="/dashboard" replace />;
 }
 
 export function App() {
@@ -108,6 +112,7 @@ export function App() {
         <Route path="residents/move" element={<PermissionRoute permission="residents.view"><MoveInOutPage /></PermissionRoute>} />
         <Route path="residents/qr-pass" element={<PermissionRoute permission="residents.view"><ResidentQRPassPage /></PermissionRoute>} />
         <Route path="residents/import" element={<PermissionRoute permission="residents.view"><BulkImportPage /></PermissionRoute>} />
+        <Route path="residents/heatmap" element={<PermissionRoute permission="residents.view"><OccupancyHeatmapPage /></PermissionRoute>} />
 
         {/* ── Unit / Block custom routes ── */}
         <Route path="units" element={<PermissionRoute permission="units.view"><UnitManagementPage /></PermissionRoute>} />

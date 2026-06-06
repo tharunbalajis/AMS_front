@@ -68,28 +68,37 @@ const OCCUPANCY_BY_SOCIETY = [
 ];
 
 export function DashboardPage() {
-  const { queryParams } = useScope();
+  const { queryParams, society } = useScope();
   const overview = useQuery({
     queryKey: ["dashboard-overview", queryParams],
     queryFn: () => dashboardApi.overview(queryParams),
   });
+  const statsQuery = useQuery({
+    queryKey: ["dashboard-stats", society?.society_id],
+    queryFn: () => dashboardApi.stats(society?.society_id),
+  });
   const data = overview.data;
+  const stats = statsQuery.data;
 
-  const occupied = data?.units.filter((u) => String(u.occupancy_status ?? "").toUpperCase() === "OCCUPIED").length ?? 0;
-  const totalUnits = data?.units.length ?? 0;
-  const occupancyPct = totalUnits ? ((occupied / totalUnits) * 100).toFixed(1) : "90.5";
-  const openComplaints = data?.complaints.filter((c) => ["OPEN", "ASSIGNED", "IN_PROGRESS"].includes(String(c.status ?? "").toUpperCase())).length ?? 62;
-  const monthlyRevenue = data?.invoices.reduce((s, i) => s + Number(i.total_amount ?? 0), 0) ?? 2230000;
-  const pendingPayments = data?.invoices.filter((i) => ["PENDING", "PARTIAL"].includes(String(i.status ?? "").toUpperCase())).reduce((s, i) => s + Number(i.balance_due ?? 0), 0) ?? 380000;
+  const occupied = stats?.occupied_units ?? data?.units.filter((u) => String(u.occupancy_status ?? "").toUpperCase() === "OCCUPIED").length ?? 0;
+  const totalUnits = stats?.total_units ?? data?.units.length ?? 0;
+  const occupancyPct = stats?.occupancy_pct?.toFixed(1) ?? (totalUnits ? ((occupied / totalUnits) * 100).toFixed(1) : "0.0");
+  const openComplaints = stats?.open_complaints ?? data?.complaints.filter((c) => ["OPEN", "ASSIGNED", "IN_PROGRESS"].includes(String(c.status ?? "").toUpperCase())).length ?? 0;
+  const pendingPaymentsCount = stats?.pending_payments ?? 0;
+  const visitorsToday = stats?.visitors_today ?? data?.visitors.length ?? 0;
+  const activeStaff = stats?.active_staff ?? data?.staff.length ?? 0;
+  const totalResidents = stats?.total_residents ?? data?.residents.length ?? 0;
+
+  const monthlyRevenue = data?.invoices.reduce((s, i) => s + Number(i.total_amount ?? 0), 0) ?? 0;
 
   const statusCounts = {
-    Open: data?.complaints.filter((c) => String(c.status ?? "").toUpperCase() === "OPEN").length ?? 28,
-    Assigned: data?.complaints.filter((c) => String(c.status ?? "").toUpperCase() === "ASSIGNED").length ?? 18,
-    InProgress: data?.complaints.filter((c) => String(c.status ?? "").toUpperCase() === "IN_PROGRESS").length ?? 16,
-    Resolved: data?.complaints.filter((c) => String(c.status ?? "").toUpperCase() === "RESOLVED").length ?? 46,
+    Open: data?.complaints.filter((c) => String(c.status ?? "").toUpperCase() === "OPEN").length ?? 0,
+    Assigned: data?.complaints.filter((c) => String(c.status ?? "").toUpperCase() === "ASSIGNED").length ?? 0,
+    InProgress: data?.complaints.filter((c) => String(c.status ?? "").toUpperCase() === "IN_PROGRESS").length ?? 0,
+    Resolved: data?.complaints.filter((c) => String(c.status ?? "").toUpperCase() === "RESOLVED").length ?? 0,
   };
   const complaintPie = [
-    { name: "Open", value: statusCounts.Open, color: "#3b82f6" },
+    { name: "Open", value: statusCounts.Open || openComplaints, color: "#3b82f6" },
     { name: "Assigned", value: statusCounts.Assigned, color: "#8b5cf6" },
     { name: "In Progress", value: statusCounts.InProgress, color: "#f59e0b" },
     { name: "Resolved", value: statusCounts.Resolved, color: "#10b981" },
@@ -101,29 +110,25 @@ export function DashboardPage() {
     ...(data?.visitors.slice(0, 2).map((v) => ({ label: String(v.visitor_name ?? "Visitor"), meta: `Entry · ${String(v.unit_id ?? "")}`, color: "bg-green-500" })) ?? []),
   ];
   const activities = recentActivities.length ? recentActivities : [
-    { label: "Aarav Sharma", meta: "Move-in · A-101 Block A", color: "bg-blue-500" },
-    { label: "Water Leakage complaint", meta: "Plumbing · OPEN", color: "bg-amber-500" },
-    { label: "Raj Verma", meta: "Entry · A-101", color: "bg-green-500" },
-    { label: "INV-2024-001 paid", meta: "₹8,500 · B-202", color: "bg-purple-500" },
-    { label: "Elevator complaint", meta: "Electrical · CRITICAL", color: "bg-red-500" },
+    { label: "No recent activity", meta: "Check back soon", color: "bg-gray-400" },
   ];
 
-  const isLoading = overview.isLoading;
+  const isLoading = overview.isLoading || statsQuery.isLoading;
 
   const kpiRow1 = [
-    { label: "TOTAL SOCIETIES", value: "14", icon: Building2, color: "bg-blue-50 text-blue-700 border-blue-100" },
-    { label: "TOTAL BLOCKS", value: "62", icon: Building, color: "bg-indigo-50 text-indigo-700 border-indigo-100" },
-    { label: "TOTAL UNITS", value: totalUnits || "3,184", icon: Home, color: "bg-purple-50 text-purple-700 border-purple-100" },
-    { label: "OCCUPIED UNITS", value: occupied || "2,946", subtext: `${occupancyPct}%`, icon: Home, color: "bg-green-50 text-green-700 border-green-100" },
-    { label: "RESIDENTS", value: data?.residents.length || "8,412", icon: Users, color: "bg-teal-50 text-teal-700 border-teal-100" },
+    { label: "TOTAL UNITS", value: totalUnits, icon: Home, color: "bg-purple-50 text-purple-700 border-purple-100" },
+    { label: "OCCUPIED UNITS", value: occupied, subtext: `${occupancyPct}% occupancy`, icon: Home, color: "bg-green-50 text-green-700 border-green-100" },
+    { label: "RESIDENTS", value: totalResidents, icon: Users, color: "bg-teal-50 text-teal-700 border-teal-100" },
+    { label: "VISITORS TODAY", value: visitorsToday, icon: Shield, color: "bg-sky-50 text-sky-700 border-sky-100" },
+    { label: "ACTIVE STAFF", value: activeStaff, icon: Users, color: "bg-violet-50 text-violet-700 border-violet-100" },
   ];
 
   const kpiRow2 = [
     { label: "MONTHLY REVENUE", value: formatCurrency(monthlyRevenue), icon: BadgeDollarSign, color: "bg-emerald-50 text-emerald-700 border-emerald-100" },
-    { label: "PENDING PAYMENTS", value: formatCurrency(pendingPayments), icon: Clock, color: "bg-amber-50 text-amber-700 border-amber-100" },
+    { label: "PENDING PAYMENTS", value: pendingPaymentsCount, icon: Clock, color: "bg-amber-50 text-amber-700 border-amber-100" },
     { label: "OPEN COMPLAINTS", value: openComplaints, icon: AlertCircle, color: "bg-red-50 text-red-700 border-red-100" },
-    { label: "VISITORS TODAY", value: data?.visitors.length || "187", icon: Shield, color: "bg-sky-50 text-sky-700 border-sky-100" },
-    { label: "ACTIVE STAFF", value: data?.staff.length || "124", icon: Users, color: "bg-violet-50 text-violet-700 border-violet-100" },
+    { label: "SOCIETIES", value: "—", icon: Building2, color: "bg-blue-50 text-blue-700 border-blue-100" },
+    { label: "BLOCKS", value: "—", icon: Building, color: "bg-indigo-50 text-indigo-700 border-indigo-100" },
   ];
 
   return (

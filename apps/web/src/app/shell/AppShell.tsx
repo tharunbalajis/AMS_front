@@ -7,12 +7,14 @@ import { authApi, scopeApi } from "../api/client";
 import { useAuth } from "../auth/AuthProvider";
 import { useScope } from "../scope/ScopeProvider";
 import { Sidebar } from "./Sidebar";
+import { CommandPalette } from "../../features/shared/components/CommandPalette";
 
 export function AppShell() {
   const { user, setUser } = useAuth();
   const { society, block, setSociety, setBlock } = useScope();
   const [dark, setDark] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
+  const [paletteOpen, setPaletteOpen] = useState(false);
   const location = useLocation();
   const societies = useQuery({ queryKey: ["societies"], queryFn: scopeApi.societies });
   const blocks = useQuery({ queryKey: ["blocks", society?.society_id], queryFn: () => scopeApi.blocks(society?.society_id), enabled: Boolean(society?.society_id) });
@@ -21,8 +23,20 @@ export function AppShell() {
     document.documentElement.classList.toggle("dark", dark);
   }, [dark]);
 
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === "k") {
+        e.preventDefault();
+        setPaletteOpen(v => !v);
+      }
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, []);
+
   return (
     <div className="flex min-h-screen bg-gray-100 text-gray-950 dark:bg-gray-950 dark:text-gray-50">
+      <CommandPalette open={paletteOpen} onClose={() => setPaletteOpen(false)} societyId={society?.society_id} />
       <Sidebar collapsed={collapsed} onLogout={() => authApi.logout().then(() => setUser(undefined))} />
       <div className="min-w-0 flex-1">
         <header className="sticky top-0 z-20 h-14 border-b border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-950">
@@ -56,7 +70,7 @@ export function AppShell() {
               </Select>
               <label className="relative hidden sm:block">
                 <Search className="absolute left-3 top-2.5 text-gray-400" size={16} />
-                <input className="h-9 w-56 rounded-md border border-gray-200 bg-white pl-9 pr-14 text-sm outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100 dark:border-gray-700 dark:bg-gray-900" placeholder="Search" />
+                <input className="h-9 w-56 rounded-md border border-gray-200 bg-white pl-9 pr-14 text-sm outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100 dark:border-gray-700 dark:bg-gray-900 cursor-pointer" placeholder="Search" readOnly onClick={() => setPaletteOpen(true)} />
                 <span className="absolute right-2 top-2 rounded border border-gray-200 bg-gray-50 px-1.5 text-[10px] font-semibold text-gray-500">Ctrl K</span>
               </label>
               <button type="button" className="relative inline-flex h-9 w-9 items-center justify-center rounded-md border border-gray-200 bg-white text-gray-600 hover:bg-gray-50" title="Notifications">
