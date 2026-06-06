@@ -1,0 +1,12 @@
+{
+  "name": "@ams/constants",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "./src/index.ts",
+  "scripts": {
+    "build": "tsc -b",
+    "lint": "eslint src",
+    "typecheck": "tsc -b --pretty false"
+  }
+}

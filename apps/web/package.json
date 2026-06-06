@@ -1,0 +1,38 @@
+{
+  "name": "@ams/web",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host 0.0.0.0 --port 5173",
+    "build": "tsc -b && vite build",
+    "lint": "eslint .",
+    "typecheck": "tsc -b --pretty false"
+  },
+  "dependencies": {
+    "@ams/api-types": "workspace:*",
+    "@ams/constants": "workspace:*",
+    "@ams/permissions": "workspace:*",
+    "@ams/schemas": "workspace:*",
+    "@ams/ui": "workspace:*",
+    "@ams/utils": "workspace:*",
+    "@hookform/resolvers": "^3.10.0",
+    "@tanstack/react-query": "^5.64.2",
+    "axios": "^1.7.9",
+    "clsx": "^2.1.1",
+    "cmdk": "^1.0.4",
+    "lucide-react": "^0.468.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "react-hook-form": "^7.54.2",
+    "react-router-dom": "^7.1.1",
+    "recharts": "^2.15.0",
+    "sonner": "^1.7.1",
+    "tailwind-merge": "^2.6.0",
+    "zod": "^3.24.1"
+  },
+  "devDependencies": {
+    "@types/react": "^19.0.7",
+    "@types/react-dom": "^19.0.3"
+  }
+}

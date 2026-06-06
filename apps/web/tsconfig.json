@@ -1,0 +1,25 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "composite": true,
+    "noEmit": true,
+    "paths": {
+      "@/*": ["./src/*"],
+      "@ams/api-types": ["../../packages/api-types/src"],
+      "@ams/constants": ["../../packages/constants/src"],
+      "@ams/permissions": ["../../packages/permissions/src"],
+      "@ams/schemas": ["../../packages/schemas/src"],
+      "@ams/ui": ["../../packages/ui/src"],
+      "@ams/utils": ["../../packages/utils/src"]
+    }
+  },
+  "include": ["src", "vite.config.ts", "tailwind.config.ts"],
+  "references": [
+    { "path": "../../packages/api-types" },
+    { "path": "../../packages/constants" },
+    { "path": "../../packages/permissions" },
+    { "path": "../../packages/schemas" },
+    { "path": "../../packages/ui" },
+    { "path": "../../packages/utils" }
+  ]
+}

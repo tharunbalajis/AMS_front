@@ -1,0 +1,11 @@
+node_modules
+dist
+.turbo
+*.tsbuildinfo
+.env
+apps/*/dist
+apps/*/.turbo
+apps/*/*.tsbuildinfo
+packages/*/dist
+packages/*/.turbo
+coverage
