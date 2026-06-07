@@ -91,7 +91,11 @@ const groups: NavGroup[] = [
     items: [
       { label: "Dashboard", to: "/complaints/dashboard", permission: "complaints" },
       { label: "Raise Complaint", to: "/complaints/new", permission: "complaints" },
-      { label: "Complaint Tracking", to: "/complaints", permission: "complaints" }
+      { label: "Complaint Tracking", to: "/complaints", permission: "complaints" },
+      { label: "SLA Monitoring", to: "/complaints/sla", permission: "complaints" },
+      { label: "Escalation Queue", to: "/complaints/escalation", permission: "complaints" },
+      { label: "Maintenance Requests", to: "/complaints/maintenance", permission: "complaints" },
+      { label: "Analytics", to: "/complaints/analytics", permission: "complaints" }
     ]
   },
   {
@@ -100,7 +104,12 @@ const groups: NavGroup[] = [
     permission: "finance",
     items: [
       { label: "Finance Dashboard", to: "/financials", permission: "finance" },
-      { label: "Invoices", to: "/financials/invoices", permission: "finance" }
+      { label: "Invoices", to: "/financials/invoices", permission: "finance" },
+      { label: "Payments", to: "/financials/payments", permission: "finance" },
+      { label: "Expense Tracking", to: "/financials/expenses", permission: "finance" },
+      { label: "GST Reports", to: "/financials/gst", permission: "finance" },
+      { label: "Penalty Management", to: "/financials/penalties", permission: "finance" },
+      { label: "Financial Reports", to: "/financials/reports", permission: "finance" }
     ]
   }
 ];
