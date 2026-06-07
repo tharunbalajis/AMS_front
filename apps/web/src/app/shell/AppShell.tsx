@@ -422,7 +422,7 @@ export function AppShell() {
 
         </header>
 
-        <main className="flex-1 overflow-y-auto p-4 lg:p-6">
+        <main className="flex-1 overflow-y-auto bg-gray-100 p-4 dark:bg-[#0f172a] lg:p-6">
 
           <FeatureErrorBoundary
             key={location.pathname}

@@ -72,9 +72,9 @@ export function VisitorLogsPage() {
             )
           },
           { key: "unit_number", header: "UNIT" },
-          { key: "host_name", header: "HOST" },
-          { key: "check_in", header: "CHECK-IN" },
-          { key: "check_out", header: "CHECK-OUT", render: (row) => <span>{String(row.check_out ?? "—")}</span> },
+          { key: "purpose", header: "PURPOSE" },
+          { key: "check_in_at", header: "CHECK-IN" },
+          { key: "check_out_at", header: "CHECK-OUT", render: (row) => <span>{String(row.check_out_at ?? "—")}</span> },
           { key: "mode", header: "MODE" },
           { key: "status", header: "STATUS", render: (row) => <StatusBadge value={row.status} /> },
         ]}

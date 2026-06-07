@@ -14,11 +14,13 @@ export function MaintenanceRequestsPage() {
 
   const { data: raw, isLoading } = useQuery({
     queryKey: ["maintenance-requests", queryParams, status],
-    queryFn: () => complaintsApi.getAll({ ...queryParams, category: "Maintenance", status: status || undefined, page: 1, page_size: 100 }),
+    queryFn: () => complaintsApi.getAll({ ...queryParams, status: status || undefined, page: 1, page_size: 100 }),
     retry: false,
   });
 
-  let rows = normalizeList<Record<string, unknown>>(raw?.data ?? raw);
+  let rows = normalizeList<Record<string, unknown>>(raw?.data ?? raw).filter((r) =>
+    String(r.category_name ?? "").toLowerCase().includes("maintenance")
+  );
   if (search) rows = rows.filter((r) => String(r.title ?? "").toLowerCase().includes(search.toLowerCase()));
   if (status) rows = rows.filter((r) => String(r.status ?? "") === status);
 

@@ -1,4 +1,5 @@
 import { Badge, DataTable, SearchBox, Select } from "@ams/ui";
+import { normalizeList } from "@ams/utils";
 import { useQuery } from "@tanstack/react-query";
 import { ChevronLeft, ChevronRight, Info } from "lucide-react";
 import { useState } from "react";
@@ -37,12 +38,12 @@ export function AuditLogsPage() {
         entity_type: entityType || undefined,
         date_from: dateFrom || undefined,
         date_to: dateTo || undefined,
-        limit: PAGE_SIZE,
-        offset: page * PAGE_SIZE,
+        page: page + 1,
+        pageSize: PAGE_SIZE,
       }),
   });
 
-  const rows = Array.isArray(query.data) ? query.data : [];
+  const rows = normalizeList<Record<string, unknown>>(query.data);
   const hasNextPage = rows.length === PAGE_SIZE;
 
   return (

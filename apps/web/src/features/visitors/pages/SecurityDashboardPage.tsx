@@ -24,9 +24,9 @@ export function SecurityDashboardPage() {
   });
 
   const visitors = normalizeList<Record<string, unknown>>(raw?.data ?? raw);
-  const totalToday = visitors.length || 187;
-  const inside = visitors.filter((v) => String(v.status ?? "").toUpperCase() === "INSIDE").length || 23;
-  const deliveries = visitors.filter((v) => String(v.visitor_type ?? "").toUpperCase() === "DELIVERY").length || 14;
+  const totalToday = visitors.length;
+  const inside = visitors.filter((v) => String(v.status ?? "").toUpperCase() === "CHECKED_IN").length;
+  const deliveries = visitors.filter((v) => String(v.visitor_type ?? "").toUpperCase() === "DELIVERY").length;
   const liveVisitors = visitors.filter((v) => String(v.status ?? "").toUpperCase() === "INSIDE").slice(0, 8);
   const rows = liveVisitors;
 
@@ -68,7 +68,7 @@ export function SecurityDashboardPage() {
             { key: "visitor_name", header: "VISITOR" },
             { key: "visitor_type", header: "TYPE" },
             { key: "unit_number", header: "UNIT" },
-            { key: "check_in", header: "CHECK-IN" },
+            { key: "check_in_at", header: "CHECK-IN" },
             { key: "status", header: "STATUS", render: (row) => <StatusBadge value={row.status} /> },
           ]}
         />

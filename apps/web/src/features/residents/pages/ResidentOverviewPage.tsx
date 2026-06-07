@@ -2,19 +2,24 @@ import { Card, Skeleton } from "@ams/ui";
 import { normalizeList } from "@ams/utils";
 import { useQuery } from "@tanstack/react-query";
 import { ArrowDownToLine, ArrowUpFromLine, Home, TrendingUp, Users } from "lucide-react";
+import { useMemo } from "react";
+import { useNavigate } from "react-router-dom";
 import { Bar, BarChart, CartesianGrid, Cell, Legend, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { residentsApi } from "@/api/residents.api";
 import { useScope } from "@/app/scope/ScopeProvider";
 
-const MOVE_DATA = [
-  { month: "Jan", in: 12, out: 5 }, { month: "Feb", in: 8, out: 3 }, { month: "Mar", in: 15, out: 7 },
-  { month: "Apr", in: 10, out: 4 }, { month: "May", in: 18, out: 6 }, { month: "Jun", in: 14, out: 9 },
+const QUICK_ACTIONS = [
+  { label: "Add New Resident", to: "/residents" },
+  { label: "Generate QR Passes", to: "/residents/qr-pass" },
+  { label: "Bulk Import", to: "/residents/import" },
+  { label: "Export Directory", to: "/residents" },
+  { label: "View Lease Agreements", to: "/residents/leases" },
+  { label: "Manage Vehicles", to: "/residents/vehicles" },
 ];
-
-const QUICK_ACTIONS = ["Add New Resident", "Generate QR Passes", "Bulk Import", "Export Directory", "View Lease Agreements", "Manage Vehicles"];
 
 export function ResidentOverviewPage() {
   const { queryParams } = useScope();
+  const navigate = useNavigate();
 
   const { data: resRaw, isLoading: resLoading } = useQuery({
     queryKey: ["residents-overview", queryParams],
@@ -30,11 +35,25 @@ export function ResidentOverviewPage() {
   const residents = normalizeList<Record<string, unknown>>(resRaw?.data ?? resRaw);
   const units = normalizeList<Record<string, unknown>>(unitRaw?.data ?? unitRaw);
 
-  const totalResidents = residents.length || 342;
-  const owners = residents.filter((r) => String(r.resident_type ?? "").toUpperCase() === "OWNER").length || 198;
-  const tenants = residents.filter((r) => String(r.resident_type ?? "").toUpperCase() === "TENANT").length || 144;
-  const occupied = units.filter((u) => String(u.occupancy_status ?? "").toUpperCase() === "OCCUPIED").length || 287;
-  const vacant = units.length - occupied || 55;
+  const totalResidents = residents.length;
+  const owners = residents.filter((r) => String(r.resident_type ?? "").toUpperCase() === "OWNER").length;
+  const tenants = residents.filter((r) => String(r.resident_type ?? "").toUpperCase() === "TENANT").length;
+  const occupied = units.filter((u) => ["OWNER_OCCUPIED", "RENTED", "OCCUPIED"].includes(String(u.occupancy_status ?? "").toUpperCase())).length;
+  const vacant = units.length - occupied;
+
+  const moveData = useMemo(() => {
+    const now = new Date();
+    return Array.from({ length: 6 }, (_, i) => {
+      const d = new Date(now.getFullYear(), now.getMonth() - (5 - i), 1);
+      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+      const month = d.toLocaleString("default", { month: "short" });
+      return {
+        month,
+        in: residents.filter((r) => String(r.move_in_date ?? "").startsWith(key)).length,
+        out: residents.filter((r) => String(r.move_out_date ?? "").startsWith(key)).length,
+      };
+    });
+  }, [residents]);
 
   const pieData = [
     { name: "Owner", value: owners, color: "#2563eb" },
@@ -76,7 +95,7 @@ export function ResidentOverviewPage() {
           <p className="mt-1 text-sm text-gray-500">Monthly resident transitions</p>
           <div className="mt-4 h-64">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={MOVE_DATA}>
+              <BarChart data={moveData}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
                 <XAxis dataKey="month" />
                 <YAxis allowDecimals={false} />
@@ -110,9 +129,9 @@ export function ResidentOverviewPage() {
         <h2 className="text-base font-semibold text-gray-900">Quick Actions</h2>
         <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {QUICK_ACTIONS.map((action) => (
-            <button key={action} type="button" className="flex items-center gap-3 rounded-lg border border-gray-200 px-4 py-3 text-sm font-medium text-gray-700 hover:bg-gray-50 hover:text-blue-600 transition">
+            <button key={action.label} type="button" onClick={() => navigate(action.to)} className="flex items-center gap-3 rounded-lg border border-gray-200 px-4 py-3 text-sm font-medium text-gray-700 hover:bg-gray-50 hover:text-blue-600 transition">
               <ArrowDownToLine size={16} className="text-blue-500" />
-              {action}
+              {action.label}
             </button>
           ))}
         </div>

@@ -29,19 +29,19 @@ export function ComplaintDashboardPage() {
   });
 
   const complaints = normalizeList<Record<string, unknown>>(raw?.data ?? raw);
-  const totalOpen = complaints.filter((c) => ["OPEN", "ASSIGNED", "IN_PROGRESS"].includes(String(c.status ?? "").toUpperCase())).length || 62;
-  const critical = complaints.filter((c) => String(c.priority ?? "").toUpperCase() === "CRITICAL").length || 8;
-  const slaBreached = complaints.filter((c) => String(c.status ?? "").toUpperCase() === "BREACHED").length || 5;
-  const resolvedToday = complaints.filter((c) => String(c.status ?? "").toUpperCase() === "RESOLVED").length || 14;
+  const totalOpen = complaints.filter((c) => ["OPEN", "ASSIGNED", "IN_PROGRESS"].includes(String(c.status ?? "").toUpperCase())).length;
+  const critical = complaints.filter((c) => String(c.priority ?? "").toUpperCase() === "CRITICAL").length;
+  const slaBreached = complaints.filter((c) => c.sla_breach === true).length;
+  const resolvedToday = complaints.filter((c) => String(c.status ?? "").toUpperCase() === "RESOLVED").length;
 
   const openComplaints = complaints.filter((c) => ["OPEN", "ASSIGNED", "IN_PROGRESS"].includes(String(c.status ?? "").toUpperCase()));
   const rows = openComplaints.slice(0, 6);
 
   const statusCounts = {
-    Open: complaints.filter((c) => String(c.status ?? "").toUpperCase() === "OPEN").length || 28,
-    Assigned: complaints.filter((c) => String(c.status ?? "").toUpperCase() === "ASSIGNED").length || 18,
-    In_Progress: complaints.filter((c) => String(c.status ?? "").toUpperCase() === "IN_PROGRESS").length || 16,
-    Resolved: complaints.filter((c) => String(c.status ?? "").toUpperCase() === "RESOLVED").length || 46,
+    Open: complaints.filter((c) => String(c.status ?? "").toUpperCase() === "OPEN").length,
+    Assigned: complaints.filter((c) => String(c.status ?? "").toUpperCase() === "ASSIGNED").length,
+    In_Progress: complaints.filter((c) => String(c.status ?? "").toUpperCase() === "IN_PROGRESS").length,
+    Resolved: complaints.filter((c) => String(c.status ?? "").toUpperCase() === "RESOLVED").length,
   };
   const pieData = [
     { name: "Open", value: statusCounts.Open, color: "#3b82f6" },

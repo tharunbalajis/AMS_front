@@ -16,7 +16,7 @@ export function EscalationQueuePage() {
 
   const { data: raw, isLoading } = useQuery({
     queryKey: ["complaints-escalation", queryParams],
-    queryFn: () => complaintsApi.getAll({ ...queryParams, priority: "CRITICAL,HIGH", page: 1, page_size: 50 }),
+    queryFn: () => complaintsApi.getAll({ ...queryParams, page: 1, page_size: 50 }),
     retry: false,
   });
 

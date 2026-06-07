@@ -11,7 +11,7 @@ export type ModuleRoute = {
 };
 
 export const MODULE_ROUTES: ModuleRoute[] = [
-  { slug: "societies", label: "Societies", endpoint: "/units/summary", permission: "societies", description: "Society-level hierarchy and portfolio controls.", icon: Building2, columns: ["society_name", "total_blocks", "total_units", "occupied_units"] },
+  { slug: "societies", label: "Societies", endpoint: "/societies", permission: "societies", description: "Society-level hierarchy and portfolio controls.", icon: Building2, columns: ["society_name", "city", "total_blocks", "total_units", "occupied_units", "occupancy_percentage"] },
   { slug: "blocks", label: "Blocks", endpoint: "/blocks", permission: "blocks", description: "Buildings and towers under the selected society.", icon: Building, columns: ["block_name", "total_floors", "is_active", "created_at"] },
   { slug: "units", label: "Units", endpoint: "/units", permission: "units", description: "Apartments, flats, villas, rooms, and dwelling records.", icon: Boxes, columns: ["unit_number", "unit_type", "block_name", "occupancy_status"] },
   { slug: "residents", label: "Residents", endpoint: "/residents", permission: "residents", description: "Resident profiles, family, vehicles, documents, and history.", icon: Users, columns: ["full_name", "mobile_primary", "resident_type", "unit_number", "block_name"] },
