@@ -142,7 +142,7 @@ export function PetManagementPage() {
             )},
             { key: "species", header: "SPECIES" },
             { key: "breed", header: "BREED" },
-            { key: "owner_name", header: "OWNER", render: row => <span>{String(row.owner_name ?? row.resident_name ?? "-")}</span> },
+            { key: "owner_name", header: "OWNER", render: row => <span>{String(row.full_name ?? row.resident_name ?? "-")}</span> },
             { key: "block_name", header: "BLOCK" },
             { key: "unit_number", header: "UNIT" },
             { key: "vaccination_date", header: "VACCINATED" },

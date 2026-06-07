@@ -113,7 +113,7 @@ export function VehicleManagementPage() {
   const rows = normalizeList<Record<string, unknown>>(raw?.data ?? raw);
 
   const handleExportCsv = () => {
-    const headers = ["registration_no","vehicle_type","make","model","color","owner_name","block_name","unit_number","parking_slot"];
+    const headers = [ "registration_no", "vehicle_type", "make", "model", "color", "full_name", "block_name", "unit_number", "parking_slot" ];
     const csv = [headers.join(","), ...rows.map(r => headers.map(h => `"${String(r[h] ?? "").replace(/"/g, '""')}"`).join(","))].join("\r\n");
     const blob = new Blob([csv], { type: "text/csv" });
     const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = "vehicles.csv"; a.click();
@@ -157,7 +157,7 @@ export function VehicleManagementPage() {
             { key: "vehicle_type", header: "TYPE" },
             { key: "make", header: "MAKE/MODEL", render: row => <span>{[row.make, row.model].filter(Boolean).join(" ") || "—"}</span> },
             { key: "color", header: "COLOR" },
-            { key: "owner_name", header: "OWNER", render: row => <span>{String(row.owner_name ?? row.resident_name ?? "-")}</span> },
+            { key: "full_name", header: "OWNER", render: row => ( <span> {String( row.full_name ?? row.owner_name ?? row.resident_name ?? "-" )} </span> ) },
             { key: "block_name", header: "BLOCK" },
             { key: "unit_number", header: "UNIT" },
             { key: "parking_slot", header: "PARKING" },
