@@ -40,13 +40,65 @@ export const authApi = {
   }
 };
 
+export type Society = {
+  society_id: number;
+  society_name: string;
+  city?: string;
+  state?: string;
+  is_active?: boolean;
+};
+
 export const scopeApi = {
-  async societies() {
+  async societies(): Promise<Society[]> {
+    try {
+      const { data } = await http.get<Society[]>("/societies");
+      const list = Array.isArray(data) ? data : (data as { data?: Society[] }).data ?? [];
+      if (list.length > 0) return list;
+    } catch {
+      // fall through to DEMO_SOCIETIES
+    }
     return DEMO_SOCIETIES;
   },
   async blocks(societyId?: number) {
     if (!societyId) return [] as Block[];
-    const { data } = await http.get<Block[]>("/blocks", { params: { society_id: societyId } });
+    const { data } = await http.get("/blocks", { params: { society_id: societyId } });
+    return normalizeList(data) as Block[];
+  }
+};
+
+export const vehiclesApi = {
+  async list(societyId?: number) {
+    const { data } = await http.get<Record<string, unknown>[]>("/vehicles", {
+      params: societyId ? { society_id: societyId } : {}
+    });
+    return Array.isArray(data) ? data : (data as { data?: Record<string, unknown>[] }).data ?? [];
+  },
+  async create(payload: Record<string, unknown>) {
+    const { data } = await http.post<Record<string, unknown>>("/vehicles", payload);
+    return data;
+  }
+};
+
+export const petsApi = {
+  async list(societyId?: number) {
+    const { data } = await http.get<Record<string, unknown>[]>("/pets", {
+      params: societyId ? { society_id: societyId } : {}
+    });
+    return Array.isArray(data) ? data : (data as { data?: Record<string, unknown>[] }).data ?? [];
+  },
+  async create(payload: Record<string, unknown>) {
+    const { data } = await http.post<Record<string, unknown>>("/pets", payload);
+    return data;
+  }
+};
+
+export const residentsExtApi = {
+  async moveOut(id: string, payload: { move_out_date?: string }) {
+    const { data } = await http.put<Record<string, unknown>>(`/residents/${id}/move-out`, payload);
+    return data;
+  },
+  async getQR(id: string) {
+    const { data } = await http.get<Record<string, unknown>>(`/residents/${id}/qr`);
     return data;
   }
 };

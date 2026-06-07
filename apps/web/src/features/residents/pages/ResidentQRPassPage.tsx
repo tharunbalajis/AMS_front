@@ -4,30 +4,43 @@ import { useQuery } from "@tanstack/react-query";
 import { Download, QrCode } from "lucide-react";
 import { useState } from "react";
 import { residentsApi } from "@/api/residents.api";
+import { residentsExtApi } from "@/app/api/client";
 import { useScope } from "@/app/scope/ScopeProvider";
-
-const MOCK: Record<string, unknown>[] = [
-  { id: 1, full_name: "Aarav Sharma", unit_number: "A-101", block_name: "Block A", mobile_primary: "9876543210" },
-  { id: 2, full_name: "Priya Patel", unit_number: "B-202", block_name: "Block B", mobile_primary: "9876543211" },
-  { id: 3, full_name: "Rahul Kumar", unit_number: "C-305", block_name: "Block C", mobile_primary: "9876543212" },
-  { id: 4, full_name: "Vijay Mehta", unit_number: "D-401", block_name: "Block D", mobile_primary: "9876543214" },
-  { id: 5, full_name: "Nisha Reddy", unit_number: "B-108", block_name: "Block B", mobile_primary: "9876543215" },
-];
 
 export function ResidentQRPassPage() {
   const { queryParams } = useScope();
   const [search, setSearch] = useState("");
-  const [selected, setSelected] = useState<Record<string, unknown> | null>(null);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
 
   const { data: raw } = useQuery({
-    queryKey: ["residents-qr", queryParams],
-    queryFn: () => residentsApi.getAll({ ...queryParams, limit: 200 }),
+    queryKey: ["residents-qr-list", queryParams],
+    queryFn: () => residentsApi.getAll({ ...queryParams, page: 1, page_size: 200 }),
     retry: false,
   });
-  const all = normalizeList<Record<string, unknown>>(raw?.data ?? raw);
-  const list = (all.length ? all : MOCK).filter((r) => !search || String(r.full_name ?? "").toLowerCase().includes(search.toLowerCase()));
+  const all = normalizeList<Record<string, unknown>>(raw?.data ?? raw ?? []);
+  const list = all.filter((r) => !search || String(r.full_name ?? "").toLowerCase().includes(search.toLowerCase()));
 
+  const { data: qrData, isLoading: qrLoading } = useQuery({
+    queryKey: ["resident-qr", selectedId],
+    queryFn: () => residentsExtApi.getQR(selectedId!),
+    enabled: Boolean(selectedId),
+    retry: false,
+  });
+
+  const selected = all.find((r) => String(r.id ?? "") === selectedId);
   const initials = selected ? String(selected.full_name ?? "??").split(" ").map((w: string) => w[0]).join("").toUpperCase().slice(0, 2) : "";
+
+  const handleDownload = () => {
+    if (!qrData?.qr_token) return;
+    const content = `Resident QR Pass\n================\nName: ${qrData.full_name}\nUnit: ${qrData.unit_number} - ${qrData.block_name}\nQR Token: ${qrData.qr_token}`;
+    const blob = new Blob([content], { type: "text/plain" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `qr-pass-${selectedId}.txt`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
 
   return (
     <div className="space-y-6">
@@ -43,10 +56,10 @@ export function ResidentQRPassPage() {
           <div className="space-y-1 overflow-y-auto" style={{ maxHeight: 420 }}>
             {list.map((r) => (
               <button
-                key={String(r.id)}
+                key={String(r.id ?? "")}
                 type="button"
-                onClick={() => setSelected(r)}
-                className={`flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm transition ${selected?.id === r.id ? "bg-blue-50 text-blue-700" : "hover:bg-gray-50"}`}
+                onClick={() => setSelectedId(String(r.id ?? ""))}
+                className={`flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm transition ${selectedId === String(r.id) ? "bg-blue-50 text-blue-700" : "hover:bg-gray-50"}`}
               >
                 <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-blue-100 text-xs font-bold text-blue-700">
                   {String(r.full_name ?? "?").slice(0, 2).toUpperCase()}
@@ -61,26 +74,35 @@ export function ResidentQRPassPage() {
         </Card>
 
         <div>
-          {selected ? (
+          {selectedId && selected ? (
             <Card className="p-8 text-center">
               <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-blue-600 text-2xl font-bold text-white">
                 {initials}
               </div>
-              <h2 className="mt-4 text-xl font-bold text-gray-900">{String(selected.full_name ?? "-")}</h2>
-              <p className="text-sm text-gray-500">{String(selected.unit_number ?? "")} · {String(selected.block_name ?? "")}</p>
+              <h2 className="mt-4 text-xl font-bold text-gray-900">{String(qrData?.full_name ?? selected.full_name ?? "-")}</h2>
+              <p className="text-sm text-gray-500">{String(qrData?.unit_number ?? selected.unit_number ?? "")} · {String(qrData?.block_name ?? selected.block_name ?? "")}</p>
               <p className="text-sm text-gray-500">{String(selected.mobile_primary ?? "")}</p>
 
               <div className="mx-auto mt-6 flex h-48 w-48 items-center justify-center rounded-xl border-2 border-dashed border-gray-300 bg-gray-50">
-                <div className="text-center text-gray-400">
-                  <QrCode size={64} className="mx-auto mb-2 opacity-40" />
-                  <p className="text-xs">QR Code</p>
-                  <p className="text-xs">ID-{String(selected.id).padStart(5, "0")}</p>
-                </div>
+                {qrLoading ? (
+                  <div className="text-gray-400 text-sm">Loading QR…</div>
+                ) : qrData?.qr_token ? (
+                  <div className="text-center">
+                    <QrCode size={64} className="mx-auto mb-2 text-gray-700" />
+                    <p className="text-xs font-mono text-gray-600 break-all px-2">{String(qrData.qr_token).slice(0, 16)}…</p>
+                  </div>
+                ) : (
+                  <div className="text-center text-gray-400">
+                    <QrCode size={64} className="mx-auto mb-2 opacity-40" />
+                    <p className="text-xs">QR unavailable</p>
+                  </div>
+                )}
               </div>
 
               <div className="mt-6 flex justify-center gap-3">
-                <Button variant="secondary">Preview Pass</Button>
-                <Button><Download size={15} className="mr-1" />Download Pass</Button>
+                <Button onClick={handleDownload} disabled={!qrData?.qr_token}>
+                  <Download size={15} className="mr-1" />Download Pass
+                </Button>
               </div>
             </Card>
           ) : (

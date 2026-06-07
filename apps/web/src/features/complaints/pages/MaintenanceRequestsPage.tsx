@@ -6,13 +6,6 @@ import { useState } from "react";
 import { complaintsApi } from "@/api/complaints.api";
 import { useScope } from "@/app/scope/ScopeProvider";
 
-const MOCK: Record<string, unknown>[] = [
-  { id: 1, ticket_number: "MNT-001", title: "AC servicing required", category_name: "HVAC", unit_number: "A-101", vendor_name: "CoolAir Services", status: "IN_PROGRESS" },
-  { id: 2, ticket_number: "MNT-002", title: "Plumbing – pipe replacement", category_name: "Plumbing", unit_number: "B-202", vendor_name: "Raj Plumbers", status: "ASSIGNED" },
-  { id: 3, ticket_number: "MNT-003", title: "Lift annual maintenance", category_name: "Electrical", unit_number: "Common Area", vendor_name: "Otis Elevators", status: "OPEN" },
-  { id: 4, ticket_number: "MNT-004", title: "Generator servicing", category_name: "Electrical", unit_number: "Basement", vendor_name: "PowerGen Co", status: "RESOLVED" },
-  { id: 5, ticket_number: "MNT-005", title: "Terrace waterproofing", category_name: "Civil", unit_number: "Top Floor", vendor_name: null, status: "OPEN" },
-];
 
 export function MaintenanceRequestsPage() {
   const { queryParams } = useScope();
@@ -25,8 +18,7 @@ export function MaintenanceRequestsPage() {
     retry: false,
   });
 
-  const fetched = normalizeList<Record<string, unknown>>(raw?.data ?? raw);
-  let rows = fetched.length ? fetched : MOCK;
+  let rows = normalizeList<Record<string, unknown>>(raw?.data ?? raw);
   if (search) rows = rows.filter((r) => String(r.title ?? "").toLowerCase().includes(search.toLowerCase()));
   if (status) rows = rows.filter((r) => String(r.status ?? "") === status);
 

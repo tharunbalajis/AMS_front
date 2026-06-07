@@ -4,6 +4,7 @@ export const residentsApi = {
   getAll: (params?: Record<string, unknown>) => http.get("/residents", { params }),
   getById: (id: string) => http.get(`/residents/${id}`),
   create: (data: Record<string, unknown>) => http.post("/residents", data),
+  
   update: (id: string, data: Record<string, unknown>) => http.put(`/residents/${id}`, data),
   remove: (id: string) => http.delete(`/residents/${id}`),
   getUnits: (params?: Record<string, unknown>) => http.get("/units", { params }),
@@ -32,4 +33,27 @@ export const residentsApi = {
 
   getTimeline: (id: string) =>
     http.get<{ resident: Record<string, unknown>; events: Record<string, unknown>[] }>(`/residents/${id}/timeline`),
+
+  getVehicles: (params?: Record<string, unknown>) => http.get('/vehicles', { params }),
+  addVehicle: (data: Record<string, unknown>) => http.post(`/residents/${data.resident_id}/vehicles`, data),
+
+  getPets: (params?: Record<string, unknown>) => http.get('/pets', { params }),
+  addPet: (data: Record<string, unknown>) => http.post(`/residents/${data.resident_id}/pets`, data),
+
+  createLease: (data: Record<string, unknown>) =>http.post("/residents/leases", data),
+  updateLease: (id: string, data: Record<string, unknown>) =>http.put(`/residents/leases/${id}`, data),
+
+  createBlock: (data: Record<string, unknown>) => http.post('/blocks', data),
+  updateBlock: (id: number, data: Record<string, unknown>) => http.put(`/blocks/${id}`, data),
+
+  createUnit: (data: Record<string, unknown>) => http.post('/units', data),
+
+  moveOut: (id: string, data: Record<string, unknown>) => http.put(`/residents/${id}/move-out`, data),
+
+  getResidentQR: (id: string) => http.get(`/residents/${id}/qr`),
+
+  importPreviewWithSociety: (rows: Record<string, unknown>[], societyId?: number) =>
+    http.post<{ total: number; valid: Record<string, unknown>[]; invalid: Record<string, unknown>[] }>(
+      '/residents/import', { rows, society_id: societyId }
+    ),
 };

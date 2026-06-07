@@ -6,12 +6,6 @@ import { Bar, BarChart, CartesianGrid, Cell, Legend, Pie, PieChart, ResponsiveCo
 import { complaintsApi } from "@/api/complaints.api";
 import { useScope } from "@/app/scope/ScopeProvider";
 
-const MOCK: Record<string, unknown>[] = [
-  { id: 1, ticket_number: "CMP-001", title: "Water Leakage in bathroom", category_name: "Plumbing", priority: "HIGH", status: "OPEN", unit_number: "A-101", assigned_to: "Rajesh Kumar" },
-  { id: 2, ticket_number: "CMP-002", title: "Elevator not working", category_name: "Electrical", priority: "CRITICAL", status: "IN_PROGRESS", unit_number: "B-202", assigned_to: "Mohan Singh" },
-  { id: 3, ticket_number: "CMP-004", title: "Parking gate issue", category_name: "Security", priority: "HIGH", status: "ASSIGNED", unit_number: "D-401", assigned_to: "Suresh Das" },
-  { id: 4, ticket_number: "CMP-005", title: "Garbage collection delay", category_name: "Housekeeping", priority: "LOW", status: "OPEN", unit_number: "A-204", assigned_to: null },
-];
 
 const CATEGORY_DATA = [
   { name: "Plumbing", count: 18 }, { name: "Electrical", count: 14 }, { name: "Security", count: 9 },
@@ -41,7 +35,7 @@ export function ComplaintDashboardPage() {
   const resolvedToday = complaints.filter((c) => String(c.status ?? "").toUpperCase() === "RESOLVED").length || 14;
 
   const openComplaints = complaints.filter((c) => ["OPEN", "ASSIGNED", "IN_PROGRESS"].includes(String(c.status ?? "").toUpperCase()));
-  const rows = openComplaints.slice(0, 6).length ? openComplaints.slice(0, 6) : MOCK;
+  const rows = openComplaints.slice(0, 6);
 
   const statusCounts = {
     Open: complaints.filter((c) => String(c.status ?? "").toUpperCase() === "OPEN").length || 28,

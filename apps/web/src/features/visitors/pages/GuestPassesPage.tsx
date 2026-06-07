@@ -1,30 +1,132 @@
 import { Button, DataTable, SearchBox, StatusBadge } from "@ams/ui";
 import { normalizeList } from "@ams/utils";
-import { useQuery } from "@tanstack/react-query";
-import { Plus, QrCode } from "lucide-react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { Loader2, Plus, QrCode, X } from "lucide-react";
 import { useState } from "react";
+import { toast } from "sonner";
 import { visitorsApi } from "@/api/visitors.api";
+import { residentsApi } from "@/api/residents.api";
 import { useScope } from "@/app/scope/ScopeProvider";
 
-const MOCK: Record<string, unknown>[] = [
-  { id: 1, pass_id: "PASS-20240115-001", resident_name: "Aarav Sharma", guest_name: "Rahul Verma", valid_from: "2024-01-15", valid_to: "2024-01-15", is_active: true },
-  { id: 2, pass_id: "PASS-20240114-002", resident_name: "Priya Patel", guest_name: "Sister Meera", valid_from: "2024-01-14", valid_to: "2024-01-16", is_active: true },
-  { id: 3, pass_id: "PASS-20240112-003", resident_name: "Rahul Kumar", guest_name: "Office Colleague", valid_from: "2024-01-12", valid_to: "2024-01-12", is_active: false },
-  { id: 4, pass_id: "PASS-20240111-004", resident_name: "Vijay Mehta", guest_name: "Parent Visit", valid_from: "2024-01-11", valid_to: "2024-01-14", is_active: false },
-  { id: 5, pass_id: "PASS-20240110-005", resident_name: "Nisha Reddy", guest_name: "Friend Kavya", valid_from: "2024-01-10", valid_to: "2024-01-10", is_active: false },
-];
+function AddPassModal({ societyId, onClose }: { societyId: number; onClose: () => void }) {
+  const qc = useQueryClient();
+  const [form, setForm] = useState({
+    resident_id: "", unit_id: "", visitor_name: "", visitor_mobile: "",
+    valid_from: "", valid_until: "", pass_purpose: "",
+  });
+
+  const residentsQuery = useQuery({
+    queryKey: ["residents-simple", societyId],
+    queryFn: () => residentsApi.getAll({ society_id: societyId, page: 1, page_size: 200 }),
+  });
+  const residents = normalizeList<Record<string, unknown>>(residentsQuery.data?.data ?? residentsQuery.data);
+
+  const mut = useMutation({
+    mutationFn: () => visitorsApi.addPass({
+      society_id:     societyId,
+      unit_id:        Number(form.unit_id),
+      resident_id:    form.resident_id,
+      visitor_name:   form.visitor_name.trim(),
+      visitor_mobile: form.visitor_mobile.trim() || null,
+      valid_from:     form.valid_from,
+      valid_until:    form.valid_until,
+      pass_purpose:   form.pass_purpose.trim() || null,
+    }),
+    onSuccess: () => {
+      toast.success("Guest pass created");
+      qc.invalidateQueries({ queryKey: ["guest-passes"] });
+      onClose();
+    },
+    onError: (e: unknown) => toast.error((e as Error)?.message ?? "Failed to create pass"),
+  });
+
+  const cls = "w-full rounded-lg border border-gray-200 px-3 py-2 text-sm outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500";
+  const isValid = form.resident_id && form.visitor_name.trim() && form.valid_from && form.valid_until;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+      <div className="w-full max-w-lg rounded-2xl bg-white shadow-2xl">
+        <div className="flex items-center justify-between border-b px-6 py-4">
+          <h2 className="font-semibold text-gray-900">Create Guest Pass</h2>
+          <button type="button" onClick={onClose} className="rounded-lg p-1.5 hover:bg-gray-100"><X size={18} /></button>
+        </div>
+        <div className="grid grid-cols-2 gap-4 p-6">
+          <label className="col-span-2 block">
+            <span className="mb-1 block text-sm font-medium text-gray-700">Resident *</span>
+            <select value={form.resident_id}
+              onChange={(e) => {
+                const r = residents.find((x) => String(x.id ?? x.resident_id) === e.target.value);
+                setForm((f) => ({ ...f, resident_id: e.target.value, unit_id: r ? String(r.unit_id ?? "") : "" }));
+              }}
+              className={cls}>
+              <option value="">Select resident</option>
+              {residents.map((r) => (
+                <option key={String(r.id ?? r.resident_id)} value={String(r.id ?? r.resident_id)}>
+                  {String(r.full_name ?? "-")} — {String(r.unit_number ?? "")}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="block">
+            <span className="mb-1 block text-sm font-medium text-gray-700">Visitor Name *</span>
+            <input value={form.visitor_name}
+              onChange={(e) => setForm((f) => ({ ...f, visitor_name: e.target.value }))}
+              placeholder="Guest full name" className={cls} />
+          </label>
+          <label className="block">
+            <span className="mb-1 block text-sm font-medium text-gray-700">Visitor Mobile</span>
+            <input value={form.visitor_mobile}
+              onChange={(e) => setForm((f) => ({ ...f, visitor_mobile: e.target.value }))}
+              placeholder="10-digit mobile" className={cls} />
+          </label>
+          <label className="block">
+            <span className="mb-1 block text-sm font-medium text-gray-700">Valid From *</span>
+            <input type="date" value={form.valid_from}
+              onChange={(e) => setForm((f) => ({ ...f, valid_from: e.target.value }))} className={cls} />
+          </label>
+          <label className="block">
+            <span className="mb-1 block text-sm font-medium text-gray-700">Valid Until *</span>
+            <input type="date" value={form.valid_until}
+              onChange={(e) => setForm((f) => ({ ...f, valid_until: e.target.value }))} className={cls} />
+          </label>
+          <label className="col-span-2 block">
+            <span className="mb-1 block text-sm font-medium text-gray-700">Purpose</span>
+            <input value={form.pass_purpose}
+              onChange={(e) => setForm((f) => ({ ...f, pass_purpose: e.target.value }))}
+              placeholder="e.g. Regular domestic help, Caretaker" className={cls} />
+          </label>
+        </div>
+        <div className="flex justify-end gap-3 border-t px-6 py-4">
+          <button type="button" onClick={onClose}
+            className="rounded-lg border border-gray-200 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50">
+            Cancel
+          </button>
+          <button type="button" disabled={!isValid || mut.isPending} onClick={() => mut.mutate()}
+            className="flex items-center gap-2 rounded-lg bg-blue-600 px-5 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50">
+            {mut.isPending && <Loader2 size={14} className="animate-spin" />}
+            Create Pass
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 export function GuestPassesPage() {
-  const { queryParams } = useScope();
+  const { queryParams, society } = useScope();
   const [search, setSearch] = useState("");
+  const [addOpen, setAddOpen] = useState(false);
 
   const { data: raw, isLoading } = useQuery({
     queryKey: ["guest-passes", queryParams],
-    queryFn: () => visitorsApi.getPasses({ ...queryParams }),
+    queryFn: () => visitorsApi.getPasses({ society_id: queryParams.society_id }),
     retry: false,
   });
-  const fetched = normalizeList<Record<string, unknown>>(raw?.data ?? raw);
-  const rows = (fetched.length ? fetched : MOCK).filter((r) => !search || String(r.pass_id ?? "").toLowerCase().includes(search.toLowerCase()) || String(r.guest_name ?? "").toLowerCase().includes(search.toLowerCase()));
+  const rows = normalizeList<Record<string, unknown>>(raw?.data ?? raw).filter(
+    (r) => !search
+      || String(r.visitor_name ?? "").toLowerCase().includes(search.toLowerCase())
+      || String(r.resident_name ?? "").toLowerCase().includes(search.toLowerCase())
+  );
 
   return (
     <div className="space-y-6">
@@ -34,25 +136,44 @@ export function GuestPassesPage() {
           <h1 className="text-2xl font-bold text-gray-900">Guest Passes</h1>
           <p className="mt-1 text-sm text-gray-500">{rows.length} passes issued</p>
         </div>
-        <Button><Plus size={15} className="mr-1" />New Pass</Button>
+        <Button onClick={() => setAddOpen(true)}><Plus size={15} className="mr-1" />New Pass</Button>
       </div>
 
-      <SearchBox className="max-w-md" placeholder="Search pass ID, guest name..." value={search} onChange={(e) => setSearch(e.target.value)} />
+      <SearchBox className="max-w-md" placeholder="Search guest name, resident..."
+        value={search} onChange={(e) => setSearch(e.target.value)} />
 
       <DataTable
         title="Guest Passes"
         rows={rows}
         isLoading={isLoading}
         columns={[
-          { key: "pass_id", header: "PASS ID", render: (row) => <span className="font-mono text-xs font-medium">{String(row.pass_id ?? "-")}</span> },
+          { key: "visitor_name",  header: "GUEST" },
           { key: "resident_name", header: "RESIDENT" },
-          { key: "guest_name", header: "GUEST" },
-          { key: "valid_from", header: "FROM" },
-          { key: "valid_to", header: "TO" },
-          { key: "is_active", header: "STATUS", render: (row) => <StatusBadge value={row.is_active ? "ACTIVE" : "CLOSED"} /> },
-          { key: "qr", header: "QR", render: () => <button type="button" className="rounded p-1 text-gray-400 hover:text-blue-600"><QrCode size={16} /></button> },
+          { key: "unit_number",   header: "UNIT" },
+          { key: "valid_from",    header: "FROM" },
+          { key: "valid_until",   header: "TO" },
+          { key: "pass_purpose",  header: "PURPOSE" },
+          {
+            key: "is_active", header: "STATUS",
+            render: (row) => <StatusBadge value={row.is_active ? "ACTIVE" : "CLOSED"} />,
+          },
+          {
+            key: "qr", header: "QR",
+            render: () => (
+              <button type="button" className="rounded p-1 text-gray-400 hover:text-blue-600">
+                <QrCode size={16} />
+              </button>
+            ),
+          },
         ]}
       />
+
+      {addOpen && (
+        <AddPassModal
+          societyId={Number(society?.society_id ?? queryParams.society_id ?? 1)}
+          onClose={() => setAddOpen(false)}
+        />
+      )}
     </div>
   );
 }

@@ -6,14 +6,6 @@ import { useState } from "react";
 import { visitorsApi } from "@/api/visitors.api";
 import { useScope } from "@/app/scope/ScopeProvider";
 
-const MOCK: Record<string, unknown>[] = [
-  { id: 1, visitor_name: "Raj Verma", visitor_type: "GUEST", unit_number: "A-101", host_name: "Aarav Sharma", check_in: "10:30 AM", check_out: "12:30 PM", mode: "QR", status: "EXITED" },
-  { id: 2, visitor_name: "Amit Joshi", visitor_type: "DELIVERY", unit_number: "B-202", host_name: "Priya Patel", check_in: "11:15 AM", check_out: null, mode: "MANUAL", status: "INSIDE" },
-  { id: 3, visitor_name: "Meera Singh", visitor_type: "SERVICE", unit_number: "C-305", host_name: "Rahul Kumar", check_in: "09:00 AM", check_out: "10:00 AM", mode: "PASS", status: "CHECKED_OUT" },
-  { id: 4, visitor_name: "Kiran Shah", visitor_type: "GUEST", unit_number: "D-401", host_name: "Vijay Mehta", check_in: "02:00 PM", check_out: null, mode: "QR", status: "INSIDE" },
-  { id: 5, visitor_name: "Deepak Roy", visitor_type: "VENDOR", unit_number: "A-204", host_name: "Sneha Gupta", check_in: "03:30 PM", check_out: "04:30 PM", mode: "MANUAL", status: "EXITED" },
-  { id: 6, visitor_name: "Sunita Nair", visitor_type: "GUEST", unit_number: "B-108", host_name: "Nisha Reddy", check_in: "01:00 PM", check_out: "03:00 PM", mode: "QR", status: "EXITED" },
-];
 
 const TYPE_COLORS: Record<string, string> = {
   GUEST: "bg-blue-100 text-blue-700",
@@ -33,8 +25,7 @@ export function VisitorLogsPage() {
     retry: false,
   });
 
-  const fetched = normalizeList<Record<string, unknown>>(raw?.data ?? raw);
-  let rows = fetched.length ? fetched : MOCK;
+  let rows = normalizeList<Record<string, unknown>>(raw?.data ?? raw);
   if (type) rows = rows.filter((r) => String(r.visitor_type ?? "") === type);
   if (status) rows = rows.filter((r) => String(r.status ?? "") === status);
 

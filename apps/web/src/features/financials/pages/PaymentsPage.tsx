@@ -5,28 +5,19 @@ import { CreditCard, DollarSign, RefreshCw } from "lucide-react";
 import { financialsApi } from "@/api/financials.api";
 import { useScope } from "@/app/scope/ScopeProvider";
 
-const MOCK: Record<string, unknown>[] = [
-  { id: 1, payment_number: "PAY-001", payment_date: "2024-01-28", resident_name: "Aarav Sharma", unit_number: "A-101", invoice_number: "INV-2024-001", payment_mode: "UPI", amount: 8500, status: "PAID" },
-  { id: 2, payment_number: "PAY-002", payment_date: "2024-01-25", resident_name: "Vijay Mehta", unit_number: "D-401", invoice_number: "INV-2024-004", payment_mode: "NEFT", amount: 12000, status: "PAID" },
-  { id: 3, payment_number: "PAY-003", payment_date: "2024-01-22", resident_name: "Nisha Reddy", unit_number: "B-108", invoice_number: "INV-2024-006", payment_mode: "Cheque", amount: 8000, status: "PAID" },
-  { id: 4, payment_number: "PAY-004", payment_date: "2024-01-20", resident_name: "Sneha Gupta", unit_number: "A-204", invoice_number: "INV-2024-005", payment_mode: "Online", amount: 3500, status: "PARTIAL" },
-  { id: 5, payment_number: "PAY-005", payment_date: "2024-01-18", resident_name: "Arjun Singh", unit_number: "C-201", invoice_number: "INV-2024-007", payment_mode: "UPI", amount: 7200, status: "PAID" },
-];
 
 export function PaymentsPage() {
   const { queryParams } = useScope();
 
   const { data: raw, isLoading } = useQuery({
     queryKey: ["payments", queryParams],
-    queryFn: () => financialsApi.getInvoices({ ...queryParams, status: "PAID,PARTIAL", page: 1, pageSize: 100 }),
+    queryFn: () => financialsApi.getInvoices({ society_id: queryParams.society_id, page: 1, pageSize: 100 }),
     retry: false,
   });
 
-  const invoices = normalizeList<Record<string, unknown>>(raw?.data ?? raw);
-  const paidInvoices = invoices.filter((i) => ["PAID", "PARTIAL"].includes(String(i.status ?? "").toUpperCase()));
-  const rows = paidInvoices.length ? paidInvoices : MOCK;
+  const rows = normalizeList<Record<string, unknown>>(raw?.data ?? raw).filter((i) => ["PAID", "PARTIAL"].includes(String(i.status ?? "").toUpperCase()));
 
-  const totalReceived = rows.reduce((s, r) => s + Number(r.amount ?? r.paid_amount ?? 0), 0) || 39200;
+  const totalReceived = rows.reduce((s, r) => s + Number(r.amount ?? r.paid_amount ?? 0), 0);
   const onlineCount = rows.filter((r) => ["UPI", "NEFT", "Online"].includes(String(r.payment_mode ?? ""))).length;
 
   const stats = [

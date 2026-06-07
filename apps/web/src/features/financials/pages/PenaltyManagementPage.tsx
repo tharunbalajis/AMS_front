@@ -5,25 +5,17 @@ import { AlertTriangle } from "lucide-react";
 import { financialsApi } from "@/api/financials.api";
 import { useScope } from "@/app/scope/ScopeProvider";
 
-const MOCK: Record<string, unknown>[] = [
-  { id: 1, applied_date: "2024-01-31", unit_number: "B-202", reason: "Late payment penalty", amount: 500, status: "PENDING" },
-  { id: 2, applied_date: "2024-01-31", unit_number: "A-204", reason: "Late payment penalty", amount: 500, status: "PAID" },
-  { id: 3, applied_date: "2024-01-15", unit_number: "C-305", reason: "Noise violation", amount: 1000, status: "PAID" },
-  { id: 4, applied_date: "2024-01-20", unit_number: "D-108", reason: "Parking rule violation", amount: 750, status: "PENDING" },
-  { id: 5, applied_date: "2024-01-10", unit_number: "B-301", reason: "Late payment penalty", amount: 500, status: "WAIVED" },
-];
 
 export function PenaltyManagementPage() {
   const { queryParams } = useScope();
 
   const { data: raw, isLoading } = useQuery({
     queryKey: ["penalties", queryParams],
-    queryFn: () => financialsApi.getInvoices({ ...queryParams, status: "OVERDUE", page: 1, pageSize: 100 }),
+    queryFn: () => financialsApi.getInvoices({ society_id: queryParams.society_id, status: "OVERDUE", page: 1, pageSize: 100 }),
     retry: false,
   });
 
-  const overdue = normalizeList<Record<string, unknown>>(raw?.data ?? raw).filter((i) => String(i.status ?? "").toUpperCase() === "OVERDUE");
-  const rows = overdue.length ? overdue : MOCK;
+  const rows = normalizeList<Record<string, unknown>>(raw?.data ?? raw).filter((i) => String(i.status ?? "").toUpperCase() === "OVERDUE");
 
   return (
     <div className="space-y-6">

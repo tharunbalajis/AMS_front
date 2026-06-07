@@ -101,7 +101,7 @@ export function DataTable<T extends Record<string, unknown>>({ title, rows, colu
               ))
             ) : rows.length ? (
               rows.map((row, index) => (
-                <tr key={String(row.id ?? index)} className="h-12 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800/60">
+                <tr key={String(row.__rowKey ?? row.id ?? row.unit_id ?? row.block_id ?? row.complaint_id ?? row.visitor_id ?? index)} className="h-12 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800/60">
                   {columns.map((column) => <td key={String(column.key)} className="px-4 py-3 text-gray-700 dark:text-gray-200">{column.render ? column.render(row) : String(row[column.key] ?? "-")}</td>)}
                 </tr>
               ))

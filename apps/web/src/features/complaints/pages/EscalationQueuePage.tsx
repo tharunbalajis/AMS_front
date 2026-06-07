@@ -5,12 +5,6 @@ import { ArrowUpCircle } from "lucide-react";
 import { complaintsApi } from "@/api/complaints.api";
 import { useScope } from "@/app/scope/ScopeProvider";
 
-const MOCK: Record<string, unknown>[] = [
-  { id: 1, ticket_number: "CMP-002", title: "Elevator not working for 3 days", priority: "CRITICAL", unit_number: "B-202", days_open: 3, assigned_to: "Mohan Singh" },
-  { id: 2, ticket_number: "CMP-001", title: "Water Leakage causing damage", priority: "HIGH", unit_number: "A-101", days_open: 5, assigned_to: "Rajesh Kumar" },
-  { id: 3, ticket_number: "CMP-009", title: "Security camera offline – North Gate", priority: "CRITICAL", unit_number: "Common Area", days_open: 2, assigned_to: null },
-  { id: 4, ticket_number: "CMP-007", title: "Roof leakage during rain", priority: "HIGH", unit_number: "C-Top Floor", days_open: 4, assigned_to: "Suresh Das" },
-];
 
 const PRIORITY_COLORS: Record<string, string> = {
   CRITICAL: "bg-red-100 text-red-700 font-bold",
@@ -26,9 +20,7 @@ export function EscalationQueuePage() {
     retry: false,
   });
 
-  const complaints = normalizeList<Record<string, unknown>>(raw?.data ?? raw);
-  const critical = complaints.filter((c) => ["CRITICAL", "HIGH"].includes(String(c.priority ?? "").toUpperCase()));
-  const rows = critical.length ? critical : MOCK;
+  const rows = normalizeList<Record<string, unknown>>(raw?.data ?? raw).filter((c) => ["CRITICAL", "HIGH"].includes(String(c.priority ?? "").toUpperCase()));
 
   return (
     <div className="space-y-6">

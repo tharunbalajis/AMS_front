@@ -13,11 +13,6 @@ const HOURLY = [
   { h: "15", entries: 11, exits: 13 }, { h: "16", entries: 9, exits: 7 }, { h: "17", entries: 6, exits: 4 },
 ];
 
-const MOCK_VISITORS: Record<string, unknown>[] = [
-  { id: 1, visitor_name: "Raj Verma", visitor_type: "GUEST", unit_number: "A-101", check_in: "10:30 AM", status: "INSIDE" },
-  { id: 2, visitor_name: "Amit Joshi", visitor_type: "DELIVERY", unit_number: "B-202", check_in: "11:15 AM", status: "INSIDE" },
-  { id: 3, visitor_name: "Kiran Shah", visitor_type: "GUEST", unit_number: "D-401", check_in: "02:00 PM", status: "INSIDE" },
-];
 
 export function SecurityDashboardPage() {
   const { queryParams } = useScope();
@@ -33,7 +28,7 @@ export function SecurityDashboardPage() {
   const inside = visitors.filter((v) => String(v.status ?? "").toUpperCase() === "INSIDE").length || 23;
   const deliveries = visitors.filter((v) => String(v.visitor_type ?? "").toUpperCase() === "DELIVERY").length || 14;
   const liveVisitors = visitors.filter((v) => String(v.status ?? "").toUpperCase() === "INSIDE").slice(0, 8);
-  const rows = liveVisitors.length ? liveVisitors : MOCK_VISITORS;
+  const rows = liveVisitors;
 
   const kpis = [
     { label: "Today's Visitors", value: totalToday, icon: Users, color: "bg-blue-100 text-blue-700" },

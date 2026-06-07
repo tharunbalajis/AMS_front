@@ -5,14 +5,6 @@ import { UserCheck, UserMinus, UserX, Users } from "lucide-react";
 import { visitorsApi } from "@/api/visitors.api";
 import { useScope } from "@/app/scope/ScopeProvider";
 
-const MOCK: Record<string, unknown>[] = [
-  { id: 1, name: "Suresh Yadav", role: "Guard", clock_in: "06:05 AM", clock_out: null, status: "PRESENT" },
-  { id: 2, name: "Geeta Bai", role: "Housekeeping", clock_in: "07:00 AM", clock_out: null, status: "PRESENT" },
-  { id: 3, name: "Rajan Kumar", role: "Plumber", clock_in: "09:15 AM", clock_out: null, status: "PRESENT" },
-  { id: 4, name: "Anita Singh", role: "Housekeeping", clock_in: "10:00 AM", clock_out: null, status: "LATE" },
-  { id: 5, name: "Mohan Verma", role: "Electrician", clock_in: null, clock_out: null, status: "ABSENT" },
-  { id: 6, name: "Priya Das", role: "Reception", clock_in: "09:00 AM", clock_out: null, status: "PRESENT" },
-];
 
 export function StaffAttendancePage() {
   const { queryParams } = useScope();
@@ -22,8 +14,7 @@ export function StaffAttendancePage() {
     queryFn: () => visitorsApi.getStaff({ ...queryParams }),
     retry: false,
   });
-  const staff = normalizeList<Record<string, unknown>>(raw?.data ?? raw);
-  const rows = staff.length ? staff : MOCK;
+  const rows = normalizeList<Record<string, unknown>>(raw?.data ?? raw);
 
   const present = rows.filter((r) => String(r.status ?? "") === "PRESENT").length;
   const late = rows.filter((r) => String(r.status ?? "") === "LATE").length;

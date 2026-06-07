@@ -6,14 +6,6 @@ import { useState } from "react";
 import { complaintsApi } from "@/api/complaints.api";
 import { useScope } from "@/app/scope/ScopeProvider";
 
-const MOCK: Record<string, unknown>[] = [
-  { id: 1, ticket_number: "CMP-001", title: "Water Leakage in bathroom", category_name: "Plumbing", priority: "HIGH", status: "OPEN", unit_number: "A-101", assigned_to: "Rajesh Kumar", created_at: "2024-01-10", sla_due: "2024-01-12" },
-  { id: 2, ticket_number: "CMP-002", title: "Elevator not working", category_name: "Electrical", priority: "CRITICAL", status: "IN_PROGRESS", unit_number: "B-202", assigned_to: "Mohan Singh", created_at: "2024-01-11", sla_due: "2024-01-12" },
-  { id: 3, ticket_number: "CMP-003", title: "Common area lights out", category_name: "Electrical", priority: "MEDIUM", status: "RESOLVED", unit_number: "C-305", assigned_to: "Rajesh Kumar", created_at: "2024-01-08", sla_due: "2024-01-11" },
-  { id: 4, ticket_number: "CMP-004", title: "Parking gate issue", category_name: "Security", priority: "HIGH", status: "ASSIGNED", unit_number: "D-401", assigned_to: "Suresh Das", created_at: "2024-01-12", sla_due: "2024-01-14" },
-  { id: 5, ticket_number: "CMP-005", title: "Garbage collection delay", category_name: "Housekeeping", priority: "LOW", status: "OPEN", unit_number: "A-204", assigned_to: null, created_at: "2024-01-13", sla_due: "2024-01-16" },
-  { id: 6, ticket_number: "CMP-006", title: "Gym equipment broken", category_name: "Amenities", priority: "MEDIUM", status: "OPEN", unit_number: "B-108", assigned_to: null, created_at: "2024-01-13", sla_due: "2024-01-15" },
-];
 
 const PRIORITY_COLORS: Record<string, string> = {
   CRITICAL: "bg-red-100 text-red-700",
@@ -34,8 +26,7 @@ export function ComplaintTrackingPage() {
     retry: false,
   });
 
-  const fetched = normalizeList<Record<string, unknown>>(raw?.data ?? raw);
-  let rows = fetched.length ? fetched : MOCK;
+  let rows = normalizeList<Record<string, unknown>>(raw?.data ?? raw);
   if (search) rows = rows.filter((r) => String(r.title ?? "").toLowerCase().includes(search.toLowerCase()));
   if (status) rows = rows.filter((r) => String(r.status ?? "") === status);
   if (priority) rows = rows.filter((r) => String(r.priority ?? "") === priority);

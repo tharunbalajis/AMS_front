@@ -8,6 +8,7 @@ import { useAuth } from "../auth/AuthProvider";
 import { useScope } from "../scope/ScopeProvider";
 import { Sidebar } from "./Sidebar";
 import { CommandPalette } from "../../features/shared/components/CommandPalette";
+import { FeatureErrorBoundary } from "../../features/shared/components/FeatureErrorBoundary";
 
 export function AppShell() {
   const { user, setUser } = useAuth();
@@ -15,6 +16,7 @@ export function AppShell() {
   const [dark, setDark] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
   const [paletteOpen, setPaletteOpen] = useState(false);
+  const [notifOpen, setNotifOpen] = useState(false);
   const location = useLocation();
   const societies = useQuery({ queryKey: ["societies"], queryFn: scopeApi.societies });
   const blocks = useQuery({ queryKey: ["blocks", society?.society_id], queryFn: () => scopeApi.blocks(society?.society_id), enabled: Boolean(society?.society_id) });
@@ -35,10 +37,10 @@ export function AppShell() {
   }, []);
 
   return (
-    <div className="flex min-h-screen bg-gray-100 text-gray-950 dark:bg-gray-950 dark:text-gray-50">
+    <div className="flex h-screen overflow-hidden bg-gray-100 text-gray-950 dark:bg-gray-950 dark:text-gray-50">
       <CommandPalette open={paletteOpen} onClose={() => setPaletteOpen(false)} societyId={society?.society_id} />
       <Sidebar collapsed={collapsed} onLogout={() => authApi.logout().then(() => setUser(undefined))} />
-      <div className="min-w-0 flex-1">
+      <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
         <header className="sticky top-0 z-20 h-14 border-b border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-950">
           <div className="flex h-full items-center justify-between gap-4 px-4 lg:px-6">
             <div className="flex min-w-0 items-center gap-3">
@@ -73,10 +75,21 @@ export function AppShell() {
                 <input className="h-9 w-56 rounded-md border border-gray-200 bg-white pl-9 pr-14 text-sm outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100 dark:border-gray-700 dark:bg-gray-900 cursor-pointer" placeholder="Search" readOnly onClick={() => setPaletteOpen(true)} />
                 <span className="absolute right-2 top-2 rounded border border-gray-200 bg-gray-50 px-1.5 text-[10px] font-semibold text-gray-500">Ctrl K</span>
               </label>
-              <button type="button" className="relative inline-flex h-9 w-9 items-center justify-center rounded-md border border-gray-200 bg-white text-gray-600 hover:bg-gray-50" title="Notifications">
-                <Bell size={16} />
-                <span className="absolute right-2 top-2 h-2 w-2 rounded-full bg-red-500" />
-              </button>
+              <div className="relative">
+                <button type="button" className="relative inline-flex h-9 w-9 items-center justify-center rounded-md border border-gray-200 bg-white text-gray-600 hover:bg-gray-50" title="Notifications" onClick={() => setNotifOpen(v => !v)}>
+                  <Bell size={16} />
+                  <span className="absolute right-2 top-2 h-2 w-2 rounded-full bg-red-500" />
+                </button>
+                {notifOpen && (
+                  <div className="absolute right-0 top-11 z-30 w-72 rounded-lg border border-gray-200 bg-white shadow-lg">
+                    <div className="flex items-center justify-between border-b border-gray-100 px-4 py-2.5">
+                      <span className="text-sm font-semibold text-gray-900">Notifications</span>
+                      <button type="button" className="text-xs text-gray-500 hover:text-gray-700" onClick={() => setNotifOpen(false)}>Dismiss</button>
+                    </div>
+                    <div className="px-4 py-6 text-center text-sm text-gray-500">No new notifications</div>
+                  </div>
+                )}
+              </div>
               <Button variant="secondary" className="h-9 w-9 px-0" title="Toggle theme" onClick={() => setDark((value) => !value)}>{dark ? <Sun size={16} /> : <Moon size={16} />}</Button>
               <div className="hidden items-center gap-2 rounded-lg border border-gray-200 bg-white px-2 py-1.5 lg:flex">
                 <UserCircle size={22} className="text-blue-600" />
@@ -88,8 +101,10 @@ export function AppShell() {
             </div>
           </div>
         </header>
-        <main className="p-4 lg:p-6">
-          <Outlet />
+        <main className="flex-1 overflow-y-auto p-4 lg:p-6">
+          <FeatureErrorBoundary key={location.pathname}>
+            <Outlet />
+          </FeatureErrorBoundary>
         </main>
         <footer className="flex flex-col gap-2 px-6 pb-6 text-xs text-gray-500 sm:flex-row sm:items-center sm:justify-between">
           <span>Signed in as {user?.email ?? "session user"}</span>

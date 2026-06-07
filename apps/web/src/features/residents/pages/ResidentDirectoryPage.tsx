@@ -2,12 +2,14 @@
 import { Button, DataTable, SearchBox, Select, StatusBadge } from "@ams/ui";
 import { normalizeList } from "@ams/utils";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Download, FileDown, Loader2, UserPlus, X } from "lucide-react";
-import { useState } from "react";
+import { FileDown, Loader2, MoreHorizontal, UserPlus, X } from "lucide-react";
+import { useRef, useState } from "react";
 import { toast } from "sonner";
 import { residentsApi } from "@/api/residents.api";
+import { residentsExtApi } from "@/app/api/client";
 import { useScope } from "@/app/scope/ScopeProvider";
 import { BulkActionBar } from "../../shared/components/BulkActionBar";
+import { EditResidentModal } from "../components/EditResidentModal";
 
 type ResidentForm = {
   full_name: string;
@@ -310,6 +312,43 @@ function AddResidentModal({
   );
 }
 
+function RowActions({row,onRefresh,onEdit,}: {row: Record<string, unknown>;onRefresh: () => void;onEdit: (row: Record<string, unknown>) => void;}) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  const id = String(row.id ?? "");
+
+  const moveOut = useMutation({
+    mutationFn: () => residentsExtApi.moveOut(id, {}),
+    onSuccess: () => { toast.success("Resident moved out"); onRefresh(); setOpen(false); },
+    onError: () => toast.error("Move out failed"),
+  });
+
+  const deactivate = useMutation({
+    mutationFn: () => residentsApi.update(id, { is_active: false }),
+    onSuccess: () => { toast.success("Resident deactivated"); onRefresh(); setOpen(false); },
+    onError: () => toast.error("Deactivate failed"),
+  });
+
+  return (
+    <div className="relative" ref={ref}>
+      <button type="button" className="rounded p-1 hover:bg-gray-100" onClick={() => setOpen(v => !v)} title="Actions">
+        <MoreHorizontal size={16} className="text-gray-500" />
+      </button>
+      {open && (
+        <div className="absolute right-0 top-7 z-30 w-40 rounded-lg border border-gray-200 bg-white shadow-lg py-1">
+          <button type="button" className="w-full px-4 py-2 text-left text-sm hover:bg-gray-50" onClick={() => { onEdit(row); setOpen(false); }}>Edit</button>
+          <button type="button" className="w-full px-4 py-2 text-left text-sm hover:bg-gray-50" onClick={() => moveOut.mutate()} disabled={moveOut.isPending}>
+            {moveOut.isPending ? "Processing…" : "Move Out"}
+          </button>
+          <button type="button" className="w-full px-4 py-2 text-left text-sm text-red-600 hover:bg-red-50" onClick={() => deactivate.mutate()} disabled={deactivate.isPending}>
+            {deactivate.isPending ? "Processing…" : "Deactivate"}
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function ResidentDirectoryPage() {
   const { queryParams, society } = useScope();
 
@@ -317,6 +356,8 @@ export function ResidentDirectoryPage() {
   const [type, setType] = useState("");
   const [status, setStatus] = useState("");
   const [addOpen, setAddOpen] = useState(false);
+  const [editOpen, setEditOpen] = useState(false);
+  const [editingResident, setEditingResident] = useState<any>(null);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [exporting, setExporting] = useState(false);
 
@@ -336,9 +377,15 @@ export function ResidentDirectoryPage() {
     setSelectedIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
 
   const toggleAll = () =>
-    setSelectedIds(prev => prev.length === rows.length ? [] : rows.map(r => String(r.id ?? r.resident_id ?? "")));
+    setSelectedIds(prev =>
+      prev.length === rows.length
+        ? []
+        : rows.map((r, i) =>
+            String(`${r.id ?? r.resident_id ?? "resident"}-${i}`)
+          )
+    );
 
-  const { data: raw, isLoading } = useQuery({
+  const { data: raw, isLoading, refetch } = useQuery({
     queryKey: ["residents", queryParams, search, type, status],
 
     queryFn: () =>
@@ -464,11 +511,7 @@ export function ResidentDirectoryPage() {
         title="Residents"
         rows={rows.map((row, index) => ({
           ...row,
-          __rowKey:
-            row.id ||
-            row.resident_id ||
-            row.email ||
-            index,
+          __rowKey: `${row.id ?? row.resident_id ?? row.email ?? "resident"}-${index}`,
         }))}
         isLoading={isLoading}
         columns={[
@@ -476,7 +519,7 @@ export function ResidentDirectoryPage() {
             key: "__select" as never,
             header: "",
             render: (row) => {
-              const id = String(row.id ?? row.resident_id ?? "");
+              const id = String(row.__rowKey ?? row.id ?? row.resident_id ?? "");
               return (
                 <input
                   type="checkbox"
@@ -551,6 +594,16 @@ export function ResidentDirectoryPage() {
             key: "move_in_date",
             header: "MOVE-IN",
           },
+          {
+            key: "member_count",
+            header: "MEMBERS",
+            render: (row) => <span>{String(row.member_count ?? 1)}</span>,
+          },
+          {
+            key: "__actions" as never,
+            header: "",
+            render: (row) => ( <RowActions row={row} onRefresh={() => refetch()} onEdit={(resident) => { setEditingResident(resident); setEditOpen(true); }} /> ),
+          },
         ]}
       />
 
@@ -558,6 +611,15 @@ export function ResidentDirectoryPage() {
         <AddResidentModal
           societyId={society?.society_id ?? 1}
           onClose={() => setAddOpen(false)}
+        />
+      )}
+      {editOpen && editingResident && (
+        <EditResidentModal
+          resident={editingResident}
+          onClose={() => {
+            setEditOpen(false);
+            setEditingResident(null);
+          }}
         />
       )}
 

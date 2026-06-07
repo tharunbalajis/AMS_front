@@ -149,7 +149,7 @@ export function Sidebar({ collapsed, onLogout }: { collapsed: boolean; onLogout?
   );
 
   return (
-    <aside className={`${collapsed ? "w-16" : "w-60"} hidden shrink-0 border-r border-gray-200 bg-white transition-all duration-200 lg:flex lg:flex-col`}>
+    <aside className={`${collapsed ? "w-16" : "w-60"} hidden h-screen shrink-0 border-r border-gray-200 bg-white transition-all duration-200 lg:flex lg:flex-col`}>
       <div className="flex h-14 items-center gap-3 border-b border-gray-200 px-4">
         <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-blue-600 text-white">
           <Building2 size={18} />
@@ -162,7 +162,7 @@ export function Sidebar({ collapsed, onLogout }: { collapsed: boolean; onLogout?
         ) : null}
       </div>
 
-      <nav className="min-h-0 flex-1 space-y-1 overflow-y-auto px-2 py-3">
+      <nav className="min-h-0 flex-1 space-y-1 overflow-y-auto overscroll-contain px-2 py-3">
         <SidebarLink to="/dashboard" icon={<LayoutDashboard size={18} />} label="Dashboard" collapsed={collapsed} />
         {visibleGroups.map((group) => {
           const active = group.items.some((item) => location.pathname === item.to || location.pathname.startsWith(`${item.to}/`));

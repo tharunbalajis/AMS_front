@@ -4,13 +4,6 @@ import { useQuery } from "@tanstack/react-query";
 import { complaintsApi } from "@/api/complaints.api";
 import { useScope } from "@/app/scope/ScopeProvider";
 
-const MOCK: Record<string, unknown>[] = [
-  { id: 1, ticket_number: "CMP-002", title: "Elevator not working", priority: "CRITICAL", sla_hours: 4, status: "BREACHED", unit_number: "B-202" },
-  { id: 2, ticket_number: "CMP-001", title: "Water Leakage in bathroom", priority: "HIGH", sla_hours: 24, status: "BREACHED", unit_number: "A-101" },
-  { id: 3, ticket_number: "CMP-004", title: "Parking gate issue", priority: "HIGH", sla_hours: 24, status: "IN_PROGRESS", unit_number: "D-401" },
-  { id: 4, ticket_number: "CMP-005", title: "Garbage collection delay", priority: "LOW", sla_hours: 72, status: "OPEN", unit_number: "A-204" },
-  { id: 5, ticket_number: "CMP-006", title: "Gym equipment broken", priority: "MEDIUM", sla_hours: 48, status: "OPEN", unit_number: "B-108" },
-];
 
 const PRIORITY_COLORS: Record<string, string> = {
   CRITICAL: "bg-red-100 text-red-700",
@@ -28,9 +21,7 @@ export function SLAMonitoringPage() {
     retry: false,
   });
 
-  const complaints = normalizeList<Record<string, unknown>>(raw?.data ?? raw);
-  const openComplaints = complaints.filter((c) => ["OPEN", "ASSIGNED", "IN_PROGRESS"].includes(String(c.status ?? "").toUpperCase()));
-  const rows = openComplaints.length ? openComplaints : MOCK;
+  const rows = normalizeList<Record<string, unknown>>(raw?.data ?? raw).filter((c) => ["OPEN", "ASSIGNED", "IN_PROGRESS"].includes(String(c.status ?? "").toUpperCase()));
 
   return (
     <div className="space-y-6">

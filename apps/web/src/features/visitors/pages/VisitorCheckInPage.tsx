@@ -1,18 +1,64 @@
 import { Button, Card, Input, Select } from "@ams/ui";
-import { Camera, UserCheck } from "lucide-react";
+import { normalizeList } from "@ams/utils";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { Camera, Loader2, UserCheck } from "lucide-react";
 import { useState } from "react";
+import { toast } from "sonner";
+import { visitorsApi } from "@/api/visitors.api";
+import { residentsApi } from "@/api/residents.api";
+import { useScope } from "@/app/scope/ScopeProvider";
 
 export function VisitorCheckInPage() {
-  const [name, setName] = useState("");
-  const [mobile, setMobile] = useState("");
-  const [unit, setUnit] = useState("");
-  const [type, setType] = useState("GUEST");
-  const [purpose, setPurpose] = useState("");
+  const { queryParams, society } = useScope();
+  const qc = useQueryClient();
 
-  function handleSubmit(e: React.FormEvent) {
+  const [name, setName]       = useState("");
+  const [mobile, setMobile]   = useState("");
+  const [unitId, setUnitId]   = useState("");
+  const [type, setType]       = useState("GUEST");
+  const [purpose, setPurpose] = useState("");
+  const [vehicle, setVehicle] = useState("");
+
+  const unitsQuery = useQuery({
+    queryKey: ["units-checkin", queryParams.society_id],
+    queryFn: () => residentsApi.getUnits({ society_id: queryParams.society_id, page: 1, page_size: 300 }),
+    enabled: Boolean(queryParams.society_id),
+    retry: false,
+  });
+  const units = normalizeList<Record<string, unknown>>(unitsQuery.data?.data ?? unitsQuery.data);
+
+  const mutation = useMutation({
+    mutationFn: () =>
+      visitorsApi.checkIn({
+        society_id:     queryParams.society_id ?? society?.society_id ?? 1,
+        unit_id:        Number(unitId),
+        visitor_name:   name.trim(),
+        visitor_mobile: mobile.trim(),
+        visitor_type:   type,
+        purpose:        purpose.trim() || null,
+        vehicle_number: vehicle.trim() || null,
+        check_in_at:    new Date().toISOString(),
+      }),
+    onSuccess: () => {
+      toast.success("Visitor checked in successfully");
+      qc.invalidateQueries({ queryKey: ["visitors"] });
+      setName(""); setMobile(""); setUnitId(""); setPurpose(""); setVehicle(""); setType("GUEST");
+    },
+    onError: (e: unknown) => {
+      const msg = (e as { response?: { data?: { message?: string } } })?.response?.data?.message
+        ?? (e as Error)?.message
+        ?? "Check-in failed";
+      toast.error(msg);
+    },
+  });
+
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    setName(""); setMobile(""); setUnit(""); setPurpose("");
-  }
+    if (!name.trim()) { toast.error("Visitor name is required"); return; }
+    if (!mobile.trim()) { toast.error("Mobile number is required"); return; }
+    if (!unitId) { toast.error("Please select a unit"); return; }
+    mutation.mutate();
+  };
 
   return (
     <div className="space-y-6">
@@ -28,23 +74,32 @@ export function VisitorCheckInPage() {
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="grid gap-4 sm:grid-cols-2">
               <div>
-                <label className="mb-1 block text-sm font-medium text-gray-700">Visitor Name <span className="text-red-500">*</span></label>
+                <label className="mb-1 block text-sm font-medium text-gray-700">
+                  Visitor Name <span className="text-red-500">*</span>
+                </label>
                 <Input placeholder="Full name" value={name} onChange={(e) => setName(e.target.value)} required />
               </div>
               <div>
-                <label className="mb-1 block text-sm font-medium text-gray-700">Mobile Number <span className="text-red-500">*</span></label>
+                <label className="mb-1 block text-sm font-medium text-gray-700">
+                  Mobile Number <span className="text-red-500">*</span>
+                </label>
                 <Input placeholder="10-digit mobile" value={mobile} onChange={(e) => setMobile(e.target.value)} required />
               </div>
             </div>
+
             <div className="grid gap-4 sm:grid-cols-2">
               <div>
-                <label className="mb-1 block text-sm font-medium text-gray-700">Visiting Unit <span className="text-red-500">*</span></label>
-                <Select value={unit} onChange={(e) => setUnit(e.target.value)} required>
+                <label className="mb-1 block text-sm font-medium text-gray-700">
+                  Visiting Unit <span className="text-red-500">*</span>
+                </label>
+                <Select value={unitId} onChange={(e) => setUnitId(e.target.value)} required>
                   <option value="">Select unit</option>
-                  <option value="A-101">A-101 · Aarav Sharma</option>
-                  <option value="B-202">B-202 · Priya Patel</option>
-                  <option value="C-305">C-305 · Rahul Kumar</option>
-                  <option value="D-401">D-401 · Vijay Mehta</option>
+                  {units.map((u) => (
+                    <option key={String(u.unit_id ?? u.id)} value={String(u.unit_id ?? u.id)}>
+                      {String(u.unit_number ?? "-")}
+                      {u.block_name ? ` · ${u.block_name}` : ""}
+                    </option>
+                  ))}
                 </Select>
               </div>
               <div>
@@ -57,18 +112,25 @@ export function VisitorCheckInPage() {
                 </Select>
               </div>
             </div>
+
             <div>
               <label className="mb-1 block text-sm font-medium text-gray-700">Purpose of Visit</label>
               <Input placeholder="Brief purpose" value={purpose} onChange={(e) => setPurpose(e.target.value)} />
             </div>
             <div>
               <label className="mb-1 block text-sm font-medium text-gray-700">Vehicle Number (optional)</label>
-              <Input placeholder="KA-01-AB-1234" />
+              <Input placeholder="KA-01-AB-1234" value={vehicle} onChange={(e) => setVehicle(e.target.value)} />
             </div>
+
             <div className="flex gap-3 pt-2">
-              <Button variant="secondary" className="flex-1" type="button">Cancel</Button>
-              <Button className="flex-1" type="submit">
-                <UserCheck size={15} className="mr-1" />Check In
+              <Button variant="secondary" className="flex-1" type="button"
+                onClick={() => { setName(""); setMobile(""); setUnitId(""); setPurpose(""); setVehicle(""); }}>
+                Clear
+              </Button>
+              <Button className="flex-1" type="submit" disabled={mutation.isPending}>
+                {mutation.isPending
+                  ? <><Loader2 size={15} className="mr-1 animate-spin" />Checking In…</>
+                  : <><UserCheck size={15} className="mr-1" />Check In</>}
               </Button>
             </div>
           </form>

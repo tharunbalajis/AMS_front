@@ -47,11 +47,9 @@ export function BulkImportPage() {
   const [fileName, setFileName] = useState("");
   const [done, setDone] = useState<{ inserted: number } | null>(null);
 
-  void society;
-
   const previewMutation = useMutation({
     mutationFn: (rows: Record<string, string>[]) =>
-      residentsApi.importPreview(rows as unknown as Record<string, unknown>[]),
+      residentsApi.importPreviewWithSociety(rows as unknown as Record<string, unknown>[], society?.society_id),
     onSuccess: ({ data }) => {
       setValidRows(data.valid ?? []);
       setInvalidRows(data.invalid ?? []);

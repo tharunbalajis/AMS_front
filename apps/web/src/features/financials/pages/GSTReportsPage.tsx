@@ -10,21 +10,13 @@ const GST_MONTHLY = [
   { month: "Nov", gst: 172000 }, { month: "Dec", gst: 165000 }, { month: "Jan", gst: 181000 },
 ];
 
-const MOCK_SUMMARY: Record<string, unknown>[] = [
-  { month: "January 2024", invoiced: 2230000, taxable_value: 1890000, gst_collected: 181000 },
-  { month: "December 2023", invoiced: 2050000, taxable_value: 1738000, gst_collected: 165000 },
-  { month: "November 2023", invoiced: 2100000, taxable_value: 1780000, gst_collected: 172000 },
-  { month: "October 2023", invoiced: 1880000, taxable_value: 1594000, gst_collected: 134000 },
-  { month: "September 2023", invoiced: 1920000, taxable_value: 1627000, gst_collected: 158000 },
-  { month: "August 2023", invoiced: 1850000, taxable_value: 1567000, gst_collected: 142000 },
-];
 
 export function GSTReportsPage() {
   const { queryParams } = useScope();
 
   const { data: raw } = useQuery({
     queryKey: ["gst-reports", queryParams],
-    queryFn: () => financialsApi.getExpenses({ ...queryParams }),
+    queryFn: () => financialsApi.getExpenses({ society_id: queryParams.society_id }),
     retry: false,
   });
   const expenses = normalizeList<Record<string, unknown>>(raw?.data ?? raw);
@@ -78,13 +70,15 @@ export function GSTReportsPage() {
       </div>
 
       <DataTable
-        title="Monthly GST Summary"
-        rows={MOCK_SUMMARY}
+        title="Expense Records (GST applicable)"
+        rows={expenses}
         columns={[
-          { key: "month", header: "MONTH" },
-          { key: "invoiced", header: "INVOICED", render: (row) => <span className="font-medium">{formatCurrency(Number(row.invoiced))}</span> },
-          { key: "taxable_value", header: "TAXABLE VALUE", render: (row) => <span>{formatCurrency(Number(row.taxable_value))}</span> },
-          { key: "gst_collected", header: "GST COLLECTED", render: (row) => <span className="font-semibold text-blue-700">{formatCurrency(Number(row.gst_collected))}</span> },
+          { key: "expense_date", header: "DATE" },
+          { key: "category", header: "CATEGORY" },
+          { key: "description", header: "DESCRIPTION" },
+          { key: "vendor", header: "VENDOR" },
+          { key: "amount", header: "AMOUNT", render: (row) => <span className="font-semibold">{formatCurrency(Number(row.amount ?? 0))}</span> },
+          { key: "gst_amount", header: "GST", render: (row) => <span className="font-semibold text-blue-700">{formatCurrency(Number(row.gst_amount ?? 0))}</span> },
         ]}
       />
     </div>

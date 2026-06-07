@@ -1,18 +1,69 @@
 import { Button, Card, Input, Select } from "@ams/ui";
-import { Camera, Send } from "lucide-react";
+import { normalizeList } from "@ams/utils";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { Camera, Loader2, Send } from "lucide-react";
 import { useState } from "react";
+import { toast } from "sonner";
+import { complaintsApi } from "@/api/complaints.api";
+import { residentsApi } from "@/api/residents.api";
+import { useScope } from "@/app/scope/ScopeProvider";
 
 export function RaiseComplaintPage() {
-  const [unit, setUnit] = useState("");
-  const [category, setCategory] = useState("");
-  const [title, setTitle] = useState("");
-  const [description, setDescription] = useState("");
-  const [priority, setPriority] = useState("MEDIUM");
+  const { queryParams, society } = useScope();
+  const qc = useQueryClient();
 
-  function handleSubmit(e: React.FormEvent) {
+  const [unitId, setUnitId]         = useState("");
+  const [categoryId, setCategoryId] = useState("");
+  const [title, setTitle]           = useState("");
+  const [description, setDescription] = useState("");
+  const [priority, setPriority]     = useState("MEDIUM");
+
+  const unitsQuery = useQuery({
+    queryKey: ["units-complaint", queryParams.society_id],
+    queryFn: () => residentsApi.getUnits({ society_id: queryParams.society_id, page: 1, page_size: 300 }),
+    enabled: Boolean(queryParams.society_id),
+    retry: false,
+  });
+  const units = normalizeList<Record<string, unknown>>(unitsQuery.data?.data ?? unitsQuery.data);
+
+  const catsQuery = useQuery({
+    queryKey: ["complaint-categories", queryParams.society_id],
+    queryFn: () => complaintsApi.getCategories({ society_id: queryParams.society_id }),
+    retry: false,
+  });
+  const categories = normalizeList<Record<string, unknown>>(catsQuery.data?.data ?? catsQuery.data);
+
+  const mutation = useMutation({
+    mutationFn: () =>
+      complaintsApi.create({
+        society_id:  queryParams.society_id ?? society?.society_id ?? 1,
+        unit_id:     Number(unitId),
+        category_id: categoryId || null,
+        title:       title.trim(),
+        description: description.trim(),
+        priority,
+        status:      "OPEN",
+      }),
+    onSuccess: () => {
+      toast.success("Complaint submitted successfully");
+      qc.invalidateQueries({ queryKey: ["complaints"] });
+      setUnitId(""); setCategoryId(""); setTitle(""); setDescription(""); setPriority("MEDIUM");
+    },
+    onError: (e: unknown) => {
+      const msg = (e as { response?: { data?: { message?: string } } })?.response?.data?.message
+        ?? (e as Error)?.message
+        ?? "Submission failed";
+      toast.error(msg);
+    },
+  });
+
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    setUnit(""); setCategory(""); setTitle(""); setDescription(""); setPriority("MEDIUM");
-  }
+    if (!unitId) { toast.error("Please select a unit"); return; }
+    if (!title.trim()) { toast.error("Complaint title is required"); return; }
+    if (!description.trim()) { toast.error("Description is required"); return; }
+    mutation.mutate();
+  };
 
   return (
     <div className="space-y-6">
@@ -27,34 +78,55 @@ export function RaiseComplaintPage() {
           <form onSubmit={handleSubmit} className="space-y-5">
             <div className="grid gap-4 sm:grid-cols-2">
               <div>
-                <label className="mb-1 block text-sm font-medium text-gray-700">Unit <span className="text-red-500">*</span></label>
-                <Select value={unit} onChange={(e) => setUnit(e.target.value)} required>
+                <label className="mb-1 block text-sm font-medium text-gray-700">
+                  Unit <span className="text-red-500">*</span>
+                </label>
+                <Select value={unitId} onChange={(e) => setUnitId(e.target.value)} required>
                   <option value="">Select your unit</option>
-                  <option value="A-101">A-101</option>
-                  <option value="B-202">B-202</option>
-                  <option value="C-305">C-305</option>
-                  <option value="D-401">D-401</option>
+                  {units.map((u) => (
+                    <option key={String(u.unit_id ?? u.id)} value={String(u.unit_id ?? u.id)}>
+                      {String(u.unit_number ?? "-")}
+                      {u.block_name ? ` · ${u.block_name}` : ""}
+                    </option>
+                  ))}
                 </Select>
               </div>
               <div>
-                <label className="mb-1 block text-sm font-medium text-gray-700">Category <span className="text-red-500">*</span></label>
-                <Select value={category} onChange={(e) => setCategory(e.target.value)} required>
+                <label className="mb-1 block text-sm font-medium text-gray-700">Category</label>
+                <Select value={categoryId} onChange={(e) => setCategoryId(e.target.value)}>
                   <option value="">Select category</option>
-                  <option value="Plumbing">Plumbing</option>
-                  <option value="Electrical">Electrical</option>
-                  <option value="Security">Security</option>
-                  <option value="Housekeeping">Housekeeping</option>
-                  <option value="Amenities">Amenities</option>
-                  <option value="Others">Others</option>
+                  {categories.length > 0
+                    ? categories.map((c) => (
+                        <option key={String(c.id ?? c.category_id)} value={String(c.id ?? c.category_id)}>
+                          {String(c.category_name ?? c.name ?? "-")}
+                        </option>
+                      ))
+                    : (
+                      <>
+                        <option value="plumbing">Plumbing</option>
+                        <option value="electrical">Electrical</option>
+                        <option value="security">Security</option>
+                        <option value="housekeeping">Housekeeping</option>
+                        <option value="amenities">Amenities</option>
+                        <option value="others">Others</option>
+                      </>
+                    )}
                 </Select>
               </div>
             </div>
+
             <div>
-              <label className="mb-1 block text-sm font-medium text-gray-700">Complaint Title <span className="text-red-500">*</span></label>
-              <Input placeholder="Brief summary of the issue" value={title} onChange={(e) => setTitle(e.target.value)} required />
+              <label className="mb-1 block text-sm font-medium text-gray-700">
+                Complaint Title <span className="text-red-500">*</span>
+              </label>
+              <Input placeholder="Brief summary of the issue" value={title}
+                onChange={(e) => setTitle(e.target.value)} required />
             </div>
+
             <div>
-              <label className="mb-1 block text-sm font-medium text-gray-700">Description <span className="text-red-500">*</span></label>
+              <label className="mb-1 block text-sm font-medium text-gray-700">
+                Description <span className="text-red-500">*</span>
+              </label>
               <textarea
                 className="h-28 w-full rounded-md border border-gray-200 px-3 py-2 text-sm outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
                 placeholder="Describe the issue in detail..."
@@ -63,6 +135,7 @@ export function RaiseComplaintPage() {
                 required
               />
             </div>
+
             <div>
               <label className="mb-1 block text-sm font-medium text-gray-700">Priority</label>
               <div className="flex gap-2">
@@ -83,6 +156,7 @@ export function RaiseComplaintPage() {
                 ))}
               </div>
             </div>
+
             <div>
               <label className="mb-1 block text-sm font-medium text-gray-700">Attach Photo (optional)</label>
               <div className="flex h-24 items-center justify-center rounded-lg border-2 border-dashed border-gray-300 hover:border-gray-400">
@@ -92,9 +166,17 @@ export function RaiseComplaintPage() {
                 </div>
               </div>
             </div>
+
             <div className="flex gap-3 pt-2">
-              <Button variant="secondary" className="flex-1" type="button">Cancel</Button>
-              <Button className="flex-1" type="submit"><Send size={15} className="mr-1" />Submit Complaint</Button>
+              <Button variant="secondary" className="flex-1" type="button"
+                onClick={() => { setUnitId(""); setCategoryId(""); setTitle(""); setDescription(""); setPriority("MEDIUM"); }}>
+                Cancel
+              </Button>
+              <Button className="flex-1" type="submit" disabled={mutation.isPending}>
+                {mutation.isPending
+                  ? <><Loader2 size={15} className="mr-1 animate-spin" />Submitting…</>
+                  : <><Send size={15} className="mr-1" />Submit Complaint</>}
+              </Button>
             </div>
           </form>
         </Card>
@@ -104,10 +186,10 @@ export function RaiseComplaintPage() {
             <h3 className="font-semibold text-gray-900">SLA Guidelines</h3>
             <div className="mt-3 space-y-3">
               {[
-                { priority: "Critical", sla: "4 hours", color: "text-red-600" },
-                { priority: "High", sla: "24 hours", color: "text-orange-600" },
-                { priority: "Medium", sla: "48 hours", color: "text-yellow-600" },
-                { priority: "Low", sla: "72 hours", color: "text-gray-600" },
+                { priority: "Critical", sla: "4 hours",  color: "text-red-600" },
+                { priority: "High",     sla: "24 hours", color: "text-orange-600" },
+                { priority: "Medium",   sla: "48 hours", color: "text-yellow-600" },
+                { priority: "Low",      sla: "72 hours", color: "text-gray-600" },
               ].map((item) => (
                 <div key={item.priority} className="flex items-center justify-between text-sm">
                   <span className={`font-semibold ${item.color}`}>{item.priority}</span>
