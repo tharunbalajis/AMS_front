@@ -2,6 +2,7 @@ import { Button, Card, SearchBox } from "@ams/ui";
 import { normalizeList } from "@ams/utils";
 import { useQuery } from "@tanstack/react-query";
 import { Download, QrCode } from "lucide-react";
+import QRCode from "react-qr-code";
 import { useState } from "react";
 import { residentsApi } from "@/api/residents.api";
 import { residentsExtApi } from "@/app/api/client";
@@ -83,16 +84,28 @@ export function ResidentQRPassPage() {
               <p className="text-sm text-gray-500">{String(qrData?.unit_number ?? selected.unit_number ?? "")} · {String(qrData?.block_name ?? selected.block_name ?? "")}</p>
               <p className="text-sm text-gray-500">{String(selected.mobile_primary ?? "")}</p>
 
-              <div className="mx-auto mt-6 flex h-48 w-48 items-center justify-center rounded-xl border-2 border-dashed border-gray-300 bg-gray-50">
+              <div className="mx-auto mt-6 flex items-center justify-center">
                 {qrLoading ? (
-                  <div className="text-gray-400 text-sm">Loading QR…</div>
+                  <div className="flex h-48 w-48 items-center justify-center rounded-xl border-2 border-dashed border-gray-300 bg-gray-50">
+                    <div className="text-gray-400 text-sm">Loading QR…</div>
+                  </div>
                 ) : qrData?.qr_token ? (
-                  <div className="text-center">
-                    <QrCode size={64} className="mx-auto mb-2 text-gray-700" />
-                    <p className="text-xs font-mono text-gray-600 break-all px-2">{String(qrData.qr_token).slice(0, 16)}…</p>
+                  <div className="flex flex-col items-center">
+                    <div className="rounded-2xl border-2 border-dashed border-gray-300 bg-white p-6">
+                      <QRCode
+                        value={String(qrData.qr_token)}
+                        size={180}
+                        bgColor="#FFFFFF"
+                        fgColor="#111827"
+                        level="H"
+                      />
+                    </div>
+                    <p className="mt-3 max-w-[220px] truncate text-xs text-gray-500">
+                      {String(qrData.qr_token)}
+                    </p>
                   </div>
                 ) : (
-                  <div className="text-center text-gray-400">
+                  <div className="flex h-48 w-48 flex-col items-center justify-center rounded-xl border-2 border-dashed border-gray-300 bg-gray-50 text-center text-gray-400">
                     <QrCode size={64} className="mx-auto mb-2 opacity-40" />
                     <p className="text-xs">QR unavailable</p>
                   </div>

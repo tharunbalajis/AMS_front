@@ -40,8 +40,9 @@ export const residentsApi = {
   getPets: (params?: Record<string, unknown>) => http.get('/pets', { params }),
   addPet: (data: Record<string, unknown>) => http.post(`/residents/${data.resident_id}/pets`, data),
 
-  createLease: (data: Record<string, unknown>) =>http.post("/residents/leases", data),
-  updateLease: (id: string, data: Record<string, unknown>) =>http.put(`/residents/leases/${id}`, data),
+  getLeases: (params?: Record<string, unknown>) => http.get("/residents/leases", { params }),
+  createLease: (data: Record<string, unknown>) => http.post("/residents/leases", data),
+  updateLease: (id: string, data: Record<string, unknown>) => http.put(`/residents/leases/${id}`, data),
 
   createBlock: (data: Record<string, unknown>) => http.post('/blocks', data),
   updateBlock: (id: number, data: Record<string, unknown>) => http.put(`/blocks/${id}`, data),

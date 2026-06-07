@@ -42,9 +42,8 @@ export function LeaseAgreementsPage() {
     ],
 
     queryFn: () =>
-      residentsApi.getAll({
+      residentsApi.getLeases({
         ...queryParams,
-        resident_type: "TENANT",
         search:
           search || undefined,
       }),
@@ -52,28 +51,9 @@ export function LeaseAgreementsPage() {
     retry: false,
   });
 
-  // IMPORTANT FIX
-
-  const apiRows =
-    raw?.data?.rows ??
-    raw?.data ??
-    raw ??
-    [];
-
+  // Backend returns a plain array; normalizeList handles the axios wrapper
   const rows =
-    normalizeList<any>(
-      apiRows
-    );
-
-  console.log(
-    "RAW API => ",
-    raw
-  );
-
-  console.log(
-    "NORMALIZED ROWS => ",
-    rows
-  );
+    normalizeList<any>(raw);
 
   return (
 
