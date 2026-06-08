@@ -28,10 +28,7 @@ export function LeaseModal({
   const queryClient =
     useQueryClient();
 
-  console.log(
-    "LEASE DATA => ",
-    lease
-  );
+  // debug logs removed
 
   const leaseId =
     lease?.lease_id;
@@ -109,15 +106,7 @@ export function LeaseModal({
 
         };
 
-        console.log(
-          "LEASE ID => ",
-          leaseId
-        );
-
-        console.log(
-          "PAYLOAD => ",
-          payload
-        );
+        // debug logs removed
 
         if (leaseId) {
 

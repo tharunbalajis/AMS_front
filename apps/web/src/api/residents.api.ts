@@ -49,6 +49,36 @@ export const residentsApi = {
 
   createUnit: (data: Record<string, unknown>) => http.post('/units', data),
 
+  // Parking slots helper (derives from unit data)
+  getParkingSlots: (unitId: number, societyId?: number) =>
+    http.get(`/units/${unitId}`, { params: societyId ? { society_id: societyId } : {} }),
+
+  // Get inactive owners (for tenant assignment)
+  // Accepts either a societyId number or a params object { society_id?, block_id? }
+  getInactiveOwners: (arg?: number | Record<string, unknown>) => {
+    let params: Record<string, unknown> = { page: 1, page_size: 200 };
+    if (typeof arg === 'number') params = { ...params, society_id: arg, resident_type: 'OWNER', is_active: false };
+    else if (arg && typeof arg === 'object') params = { ...params, ...arg };
+    // prefer dedicated endpoint if backend supports it
+    return http.get('/residents/inactive-owners', { params });
+  },
+
+  // Bulk create: create unit then owner in sequence (utility)
+  createUnitWithOwner: async (unitData: Record<string, unknown>, ownerData: Record<string, unknown> | null) => {
+    const unit = await http.post('/units', unitData);
+    const unitId = (unit && (unit as any).data && (unit as any).data.unit_id) ?? (unit as any).unit_id;
+    if (ownerData && unitId) {
+      await http.post('/residents', { ...ownerData, unit_id: unitId });
+    }
+    return unit;
+  },
+
+  // End lease + move out together
+  endLeaseAndMoveOut: async (residentId: string, leaseId: string, moveOutDate: string) => {
+    await http.put(`/residents/leases/${leaseId}`, { status: 'TERMINATED' });
+    return http.put(`/residents/${residentId}/move-out`, { move_out_date: moveOutDate });
+  },
+
   moveOut: (id: string, data: Record<string, unknown>) => http.put(`/residents/${id}/move-out`, data),
 
   getResidentQR: (id: string) => http.get(`/residents/${id}/qr`),

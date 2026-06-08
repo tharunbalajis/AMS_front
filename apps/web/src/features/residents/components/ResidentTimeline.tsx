@@ -94,7 +94,7 @@ export function ResidentTimeline({ residentId, residentName, onClose }: Props) {
         {data && data.events.length > 0 && (
           <div className="relative space-y-4">
             <div className="absolute left-4 top-4 bottom-4 w-px bg-gray-200" />
-            {(data.events as TimelineEvent[]).map((event, i) => {
+            {(data.events as any[]).map((event: any, i: number) => {
               const Icon = EVENT_ICON[event.type] ?? Home;
               const colorClass = EVENT_COLOR[event.type] ?? "bg-gray-100 text-gray-700 border-gray-200";
               return (

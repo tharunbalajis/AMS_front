@@ -46,7 +46,7 @@ export function CommandPalette({ open, onClose, societyId }: CommandPaletteProps
           ...(data.residents ?? []).map((r: Record<string, unknown>) => ({
             id: `r-${r.id}`,
             label: String(r.full_name ?? ""),
-            sublabel: `${r.block_name ?? ""} / ${r.unit_number ?? ""} · ${r.resident_type ?? ""}`,
+            sublabel: `${r.block_name ?? ""} / ${r.unit_number ?? ""} · ${((() => { const s = String(r.resident_type ?? "").toUpperCase(); return s === 'FAMILY' ? 'OWNER' : s; })())}`,
             href: `/residents/${r.id}`,
             type: "resident" as const,
           })),

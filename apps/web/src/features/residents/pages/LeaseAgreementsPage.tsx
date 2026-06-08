@@ -4,10 +4,7 @@ import { normalizeList } from "@ams/utils";
 
 import { useQuery } from "@tanstack/react-query";
 
-import {
-  FilePlus,
-  Pencil,
-} from "lucide-react";
+import { Pencil } from "lucide-react";
 
 import { useState } from "react";
 
@@ -15,7 +12,8 @@ import { residentsApi } from "@/api/residents.api";
 
 import { useScope } from "@/app/scope/ScopeProvider";
 
-import { LeaseModal } from "../components/LeaseModal";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
 
 export function LeaseAgreementsPage() {
 
@@ -24,16 +22,9 @@ export function LeaseAgreementsPage() {
   const [search, setSearch] =
     useState("");
 
-  const [showLeaseModal, setShowLeaseModal] =
-    useState(false);
+  const qc = useQueryClient();
 
-  const [editingLease, setEditingLease] =
-    useState<any>(null);
-
-  const {
-    data: raw,
-    isLoading,
-  } = useQuery({
+  const { data: raw, isLoading } = useQuery({
 
     queryKey: [
       "leases",
@@ -54,6 +45,15 @@ export function LeaseAgreementsPage() {
   // Backend returns a plain array; normalizeList handles the axios wrapper
   const rows =
     normalizeList<any>(raw);
+
+  const endLeaseMut = useMutation({
+    mutationFn: async ({ leaseId, residentId }: { leaseId: string; residentId: string }) => {
+      const today = new Date().toISOString().slice(0,10);
+      return residentsApi.endLeaseAndMoveOut(String(residentId), String(leaseId), today);
+    },
+    onSuccess: () => { toast.success('Lease ended and tenant moved out'); qc.invalidateQueries({ queryKey: ['leases'] }); qc.invalidateQueries({ queryKey: ['residents'] }); },
+    onError: (e: any) => { toast.error((e as any)?.response?.data?.message ?? (e as Error)?.message ?? 'Operation failed'); }
+  });
 
   return (
 
@@ -77,24 +77,7 @@ export function LeaseAgreementsPage() {
 
         </div>
 
-        <Button
-          onClick={() => {
-
-            setEditingLease(null);
-
-            setShowLeaseModal(true);
-
-          }}
-        >
-
-          <FilePlus
-            size={15}
-            className="mr-1"
-          />
-
-          New Lease
-
-        </Button>
+        {/* Read-only listing: lease creation handled from Resident wizard */}
 
       </div>
 
@@ -191,6 +174,17 @@ export function LeaseAgreementsPage() {
           },
 
           {
+            key: "days_remaining",
+            header: "DAYS REMAINING",
+            render: (row) => {
+              const leaseEnd = row.lease_end ?? row.end ?? null;
+              if (!leaseEnd) return <span>-</span>;
+              const days = Math.ceil((new Date(String(leaseEnd)).getTime() - new Date().getTime()) / 86400000);
+              return <span>{days >= 0 ? `${days} days` : 'Expired'}</span>;
+            }
+          },
+
+          {
             key: "monthly_rent",
 
             header: "RENT / MO",
@@ -231,82 +225,20 @@ export function LeaseAgreementsPage() {
 
           {
             key: "actions",
-
             header: "",
-
             render: (row) => (
-
-              <button
-
-                onClick={() => {
-
-                  console.log(
-                    "EDIT ROW => ",
-                    row
-                  );
-
-                  setEditingLease({
-
-                    lease_id:
-                      row.lease_id,
-
-                    tenant_resident_id:
-                      row.tenant_resident_id,
-
-                    full_name:
-                      row.full_name,
-
-                    lease_start:
-                      row.lease_start,
-
-                    lease_end:
-                      row.lease_end,
-
-                    monthly_rent:
-                      row.monthly_rent,
-
-                  });
-
-                  setShowLeaseModal(
-                    true
-                  );
-
-                }}
-
-                className="rounded-lg p-2 hover:bg-gray-100"
-              >
-
-                <Pencil size={16} />
-
-              </button>
-
+              <div className="flex items-center gap-2">
+                <button className="rounded-lg p-2 text-sm hover:bg-gray-50" onClick={() => endLeaseMut.mutate({ leaseId: String(row.lease_id ?? row.id ?? ''), residentId: String(row.tenant_resident_id ?? '') })}>
+                  End Lease
+                </button>
+              </div>
             ),
           },
 
         ]}
       />
 
-      {showLeaseModal && (
-
-        <LeaseModal
-
-          lease={editingLease}
-
-          onClose={() => {
-
-            setShowLeaseModal(
-              false
-            );
-
-            setEditingLease(
-              null
-            );
-
-          }}
-
-        />
-
-      )}
+      {/* Lease creation and editing removed from this read-only view */}
 
     </div>
   );

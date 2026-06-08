@@ -7,15 +7,29 @@ import { toast } from "sonner";
 import { residentsApi } from "@/api/residents.api";
 import { useScope } from "@/app/scope/ScopeProvider";
 
+const mapResidentType = (v: unknown) => {
+  const s = String(v ?? "").toUpperCase();
+  return s === "FAMILY" ? "OWNER" : s;
+};
+
 function AddPetModal({ societyId, onClose }: { societyId: number; onClose: () => void }) {
   const qc = useQueryClient();
   const [form, setForm] = useState({ resident_id: "", unit_id: "", pet_name: "", species: "DOG", breed: "", vaccination_date: "" });
 
   const residentsQuery = useQuery({
     queryKey: ["residents-simple", societyId],
-    queryFn: () => residentsApi.getAll({ society_id: societyId, page: 1, page_size: 200 }),
+    queryFn: () => residentsApi.getAll({ society_id: societyId, is_active: true, page: 1, page_size: 200 }),
   });
   const residents = normalizeList<Record<string, unknown>>(residentsQuery.data?.data ?? residentsQuery.data);
+  const today = new Date().toISOString().slice(0,10);
+  const residentsFiltered = (residents ?? []).filter(r => {
+    const isActive = Boolean(r.is_active);
+    const type = mapResidentType(r.resident_type);
+    const moveOut = r.move_out_date ? String(r.move_out_date).slice(0,10) : null;
+    if (!isActive) return false;
+    if (moveOut && moveOut < today) return false;
+    return type === 'OWNER' || type === 'TENANT';
+  });
 
   const mutation = useMutation({
     mutationFn: () => residentsApi.addPet({
@@ -40,12 +54,14 @@ function AddPetModal({ societyId, onClose }: { societyId: number; onClose: () =>
             <span className="mb-1 block text-sm font-medium text-gray-700">Resident (Owner) *</span>
             <select value={form.resident_id}
               onChange={e => {
-                const r = residents.find(x => String(x.id) === e.target.value);
+                const r = residentsFiltered.find(x => String(x.id) === e.target.value);
                 setForm(f => ({ ...f, resident_id: e.target.value, unit_id: r ? String(r.unit_id ?? "") : "" }));
               }}
-              className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm">
-              <option value="">Select resident</option>
-              {residents.map(r => <option key={String(r.id)} value={String(r.id)}>{String(r.full_name)} — {String(r.unit_number ?? "")}</option>)}
+              className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm"
+              disabled={residentsQuery.isLoading}
+            >
+              {residentsQuery.isLoading ? <option>Loading...</option> : <option value="">Select resident</option>}
+              {residentsFiltered.map(r => <option key={String(r.id)} value={String(r.id)}>{String(r.full_name)} — {String(r.unit_number ?? "")}</option>)}
             </select>
           </label>
           <div className="grid grid-cols-2 gap-4">
@@ -91,6 +107,7 @@ export function PetManagementPage() {
   const { queryParams, society } = useScope();
   const [search, setSearch] = useState("");
   const [species, setSpecies] = useState("");
+  const [ownerType, setOwnerType] = useState("");
   const [addOpen, setAddOpen] = useState(false);
 
   const { data: raw, isLoading } = useQuery({
@@ -100,6 +117,12 @@ export function PetManagementPage() {
   });
 
   const rows = normalizeList<Record<string, unknown>>(raw?.data ?? raw);
+  const filteredRows = (rows ?? []).filter(r => {
+    if (ownerType) {
+      return mapResidentType(r.resident_type ?? r.owner_resident_type ?? "") === ownerType;
+    }
+    return true;
+  });
 
   return (
     <div className="space-y-6">
@@ -114,25 +137,30 @@ export function PetManagementPage() {
 
       <div className="flex flex-wrap gap-3">
         <SearchBox className="min-w-[240px] flex-1" placeholder="Search pet name, owner..." value={search} onChange={e => setSearch(e.target.value)} />
+        <Select className="w-40" value={ownerType} onChange={e => setOwnerType(e.target.value)}>
+          <option value="">All Owner Types</option>
+          <option value="OWNER">Owner</option>
+          <option value="TENANT">Tenant</option>
+        </Select>
         <Select className="w-40" value={species} onChange={e => setSpecies(e.target.value)}>
           <option value="">All Species</option>
           {["DOG","CAT","BIRD","FISH","RABBIT","OTHER"].map(s => <option key={s} value={s}>{s}</option>)}
         </Select>
       </div>
 
-      {!isLoading && rows.length === 0 ? (
+      {!isLoading && filteredRows.length === 0 ? (
         <div className="rounded-xl border border-dashed border-gray-300 p-12 text-center">
           <PawPrint size={40} className="mx-auto mb-3 text-gray-300" />
           <p className="font-medium text-gray-600">No pets registered</p>
           <p className="mt-1 text-sm text-gray-400">Click "Add Pet" to register a pet.</p>
         </div>
       ) : (
-        <DataTable
+          <DataTable
           title="Pets"
-          rows={rows.map((r, i) => ({ ...r, __rowKey: r.id ?? i }))}
+          rows={filteredRows.map((r, i) => ({ ...r, __rowKey: r.id ?? i }))}
           isLoading={isLoading}
           columns={[
-            { key: "pet_name", header: "PET NAME", render: row => (
+            { key: "pet_name", header: "PET NAME", render: (row: any) => (
               <div className="flex items-center gap-2">
                 <div className="flex h-8 w-8 items-center justify-center rounded-full bg-amber-100 text-amber-700">
                   <PawPrint size={14} />
@@ -142,7 +170,7 @@ export function PetManagementPage() {
             )},
             { key: "species", header: "SPECIES" },
             { key: "breed", header: "BREED" },
-            { key: "owner_name", header: "OWNER", render: row => <span>{String(row.full_name ?? row.resident_name ?? "-")}</span> },
+            { key: "owner_name", header: "OWNER", render: (row: any) => <span>{String(row.full_name ?? row.resident_name ?? "-")}</span> },
             { key: "block_name", header: "BLOCK" },
             { key: "unit_number", header: "UNIT" },
             { key: "vaccination_date", header: "VACCINATED" },

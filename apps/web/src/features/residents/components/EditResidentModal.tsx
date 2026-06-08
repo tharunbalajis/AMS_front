@@ -31,12 +31,17 @@ export function EditResidentModal({
 }) {
   const qc = useQueryClient();
 
+  const mapResidentType = (v: unknown) => {
+    const s = String(v ?? "").toUpperCase();
+    return s === "FAMILY" ? "OWNER" : s;
+  };
+
   const [form, setForm] = useState<ResidentForm>({
     unit_id: String(resident.unit_id ?? ""),
     full_name: resident.full_name ?? "",
     email: resident.email ?? "",
     mobile_primary: resident.mobile_primary ?? resident.mobile ?? "",
-    resident_type: resident.resident_type ?? "OWNER",
+    resident_type: mapResidentType(resident.resident_type ?? "OWNER") as "OWNER" | "TENANT",
     move_in_date: resident.move_in_date?.slice(0, 10) ?? "",
     move_out_date: resident.move_out_date?.slice(0, 10) ?? "",
     });

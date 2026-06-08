@@ -7,6 +7,11 @@ import { residentsApi } from "@/api/residents.api";
 import { residentsExtApi } from "@/app/api/client";
 import { useScope } from "@/app/scope/ScopeProvider";
 
+const mapResidentType = (v: unknown) => {
+  const s = String(v ?? "").toUpperCase();
+  return s === "FAMILY" ? "OWNER" : s;
+};
+
 export function MoveInOutPage() {
   const { society, queryParams } = useScope();
   const [activeTab, setActiveTab] = useState<"in" | "out">("in");
@@ -16,11 +21,20 @@ export function MoveInOutPage() {
 
   const { data: raw } = useQuery({
     queryKey: ["residents", queryParams],
-    queryFn: () => residentsApi.getAll({ ...queryParams, page: 1, page_size: 200 }),
+    queryFn: () => residentsApi.getAll({ ...queryParams, page: 1, page_size: 200, is_active: true }),
     retry: false,
   });
   const residents = normalizeList<Record<string, unknown>>(raw?.data ?? raw ?? []);
   const selectedResident = residents.find((r) => String(r.id ?? "") === residentId);
+
+  // Fetch leases for the society for use when ending tenancy
+  const { data: leasesRaw } = useQuery({
+    queryKey: ["leases", queryParams],
+    queryFn: () => residentsApi.getLeases({ ...queryParams, page: 1, page_size: 500 }),
+    retry: false,
+  });
+  const leases = normalizeList<Record<string, unknown>>(leasesRaw?.data ?? leasesRaw ?? []) ?? [];
+  const activeLeaseForSelected = leases.find(l => String(l.tenant_resident_id) === String(residentId) && String(l.status) === 'ACTIVE');
 
   const { data: recentRaw, refetch: refetchRecent } = useQuery({
     queryKey: ["residents-moves", society?.society_id],
@@ -32,13 +46,27 @@ export function MoveInOutPage() {
     .map((r) => ({ ...r, move_type: "MOVE_OUT", move_date: r.move_out_date, resident_name: r.full_name }));
 
   const moveOutMutation = useMutation({
-    mutationFn: () => residentsExtApi.moveOut(residentId, { move_out_date: date || undefined }),
+    mutationFn: async () => {
+      if (!residentId) throw new Error('No resident selected');
+      const moveOutDate = date || new Date().toISOString().slice(0,10);
+
+      // if tenant with active lease, end lease and move out in one flow
+      if (mapResidentType(selectedResident?.resident_type) === 'TENANT') {
+        const lease = leases.find(l => String(l.tenant_resident_id) === String(residentId) && String(l.status) === 'ACTIVE');
+        if (lease) {
+          const leaseId = String(lease.id ?? lease.lease_id ?? '');
+          return residentsApi.endLeaseAndMoveOut(String(residentId), leaseId, moveOutDate);
+        }
+      }
+
+      return residentsApi.moveOut(String(residentId), { move_out_date: moveOutDate });
+    },
     onSuccess: () => {
-      toast.success("Move-out processed successfully");
+      toast.success(`${String(selectedResident?.full_name ?? 'Resident')} moved out`);
       setResidentId(""); setDate(""); setNotes("");
       refetchRecent();
     },
-    onError: (err: Error) => toast.error(err.message || "Move-out failed"),
+    onError: (err: any) => toast.error((err as any)?.response?.data?.message ?? (err as Error)?.message ?? 'Operation failed'),
   });
 
   const handleSubmit = () => {
@@ -46,7 +74,8 @@ export function MoveInOutPage() {
     if (activeTab === "out") {
       moveOutMutation.mutate();
     } else {
-      toast.info("Move-in is done via Add Resident in the Resident Directory");
+      // redirect to resident directory where Add Resident wizard lives
+      window.location.href = '/residents';
     }
   };
 
@@ -82,8 +111,24 @@ export function MoveInOutPage() {
 
             {selectedResident && (
               <div className="rounded-lg bg-blue-50 px-4 py-3 text-sm">
-                <p className="font-medium text-blue-900">{String(selectedResident.full_name ?? "")}</p>
-                <p className="text-blue-700">{String(selectedResident.unit_number ?? "")} · {String(selectedResident.block_name ?? "")}</p>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="font-medium text-blue-900">{String(selectedResident.full_name ?? "")}</p>
+                    <p className="text-blue-700">{String(selectedResident.unit_number ?? "")} · {String(selectedResident.block_name ?? "")}</p>
+                  </div>
+                  <div>
+                    <StatusBadge value={String(mapResidentType(selectedResident.resident_type ?? ""))} />
+                  </div>
+                </div>
+                <div className="mt-2 text-sm text-blue-800">
+                  <div>Move-in: {String(selectedResident.move_in_date ?? "-")}</div>
+                  {activeLeaseForSelected && (
+                    <div>Lease ends: {String(activeLeaseForSelected.lease_end ?? activeLeaseForSelected.end ?? "-")}</div>
+                  )}
+                </div>
+                {mapResidentType(selectedResident.resident_type) === 'TENANT' && (
+                  <div className="mt-2 rounded-md bg-yellow-50 p-2 text-sm text-yellow-800">Ending this tenant's stay will also close their active lease agreement.</div>
+                )}
               </div>
             )}
 
@@ -110,10 +155,10 @@ export function MoveInOutPage() {
           title="Recent Move-Outs"
           rows={recent}
           columns={[
-            { key: "move_type", header: "TYPE", render: (row) => <StatusBadge value={row.move_type === "MOVE_IN" ? "ACTIVE" : "CLOSED"} /> },
+            { key: "move_type", header: "TYPE", render: (row: any) => <StatusBadge value={row.move_type === "MOVE_IN" ? "ACTIVE" : "CLOSED"} /> },
             { key: "resident_name", header: "RESIDENT" },
             { key: "unit_number", header: "UNIT" },
-            { key: "move_date", header: "DATE", render: (row) => <span>{String(row.move_out_date ?? "-")}</span> },
+            { key: "move_date", header: "DATE", render: (row: any) => <span>{String(row.move_date ?? "-")}</span> },
           ]}
         />
       </div>

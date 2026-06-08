@@ -8,6 +8,11 @@ import { Bar, BarChart, CartesianGrid, Cell, Legend, Pie, PieChart, ResponsiveCo
 import { residentsApi } from "@/api/residents.api";
 import { useScope } from "@/app/scope/ScopeProvider";
 
+const mapResidentType = (v: unknown) => {
+  const s = String(v ?? "").toUpperCase();
+  return s === "FAMILY" ? "OWNER" : s;
+};
+
 const QUICK_ACTIONS = [
   { label: "Add New Resident", to: "/residents" },
   { label: "Generate QR Passes", to: "/residents/qr-pass" },
@@ -36,8 +41,8 @@ export function ResidentOverviewPage() {
   const units = normalizeList<Record<string, unknown>>(unitRaw?.data ?? unitRaw);
 
   const totalResidents = residents.length;
-  const owners = residents.filter((r) => String(r.resident_type ?? "").toUpperCase() === "OWNER").length;
-  const tenants = residents.filter((r) => String(r.resident_type ?? "").toUpperCase() === "TENANT").length;
+  const owners = residents.filter((r) => mapResidentType(r.resident_type) === "OWNER").length;
+  const tenants = residents.filter((r) => mapResidentType(r.resident_type) === "TENANT").length;
   const occupied = units.filter((u) => ["OWNER_OCCUPIED", "RENTED", "OCCUPIED"].includes(String(u.occupancy_status ?? "").toUpperCase())).length;
   const vacant = units.length - occupied;
 

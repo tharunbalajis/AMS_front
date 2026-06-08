@@ -27,7 +27,7 @@ export function OccupancyHeatmapPage() {
     queryKey: ["heatmap", society?.society_id],
     queryFn: async () => {
       const res = await unitsApi.heatmap(society?.society_id);
-      return res.data as { society_id: number; blocks: Block[] };
+      return res.data as unknown as { society_id: number; blocks: Block[] };
     },
   });
 

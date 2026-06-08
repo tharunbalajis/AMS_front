@@ -16,7 +16,6 @@ function AddVehicleModal({ societyId, onClose }: { societyId: number; onClose: (
     queryFn: () => residentsApi.getAll({ society_id: societyId, page: 1, page_size: 200 }),
   });
   const residents = normalizeList<Record<string, unknown>>(residentsQuery.data?.data ?? residentsQuery.data);
-  console.log(residents);
   const mutation = useMutation({
     mutationFn: () => {
       const payload = {
@@ -24,8 +23,6 @@ function AddVehicleModal({ societyId, onClose }: { societyId: number; onClose: (
         society_id: societyId,
         unit_id: Number(form.unit_id),
       };
-
-      console.log("ADD VEHICLE PAYLOAD", payload);
 
       return residentsApi.addVehicle(payload);
     },
@@ -153,11 +150,11 @@ export function VehicleManagementPage() {
           rows={rows.map((r, i) => ({ ...r, __rowKey: r.id ?? i }))}
           isLoading={isLoading}
           columns={[
-            { key: "registration_no", header: "VEHICLE NO", render: row => <span className="font-mono font-medium">{String(row.registration_no ?? "-")}</span> },
+            { key: "registration_no", header: "VEHICLE NO", render: (row: any) => <span className="font-mono font-medium">{String(row.registration_no ?? "-")}</span> },
             { key: "vehicle_type", header: "TYPE" },
-            { key: "make", header: "MAKE/MODEL", render: row => <span>{[row.make, row.model].filter(Boolean).join(" ") || "—"}</span> },
             { key: "color", header: "COLOR" },
-            { key: "full_name", header: "OWNER", render: row => ( <span> {String( row.full_name ?? row.owner_name ?? row.resident_name ?? "-" )} </span> ) },
+            { key: "make", header: "MAKE/MODEL", render: (row: any) => <span>{[row.make, row.model].filter(Boolean).join(" ") || "—"}</span> },
+                        { key: "full_name", header: "OWNER", render: (row: any) => ( <span> {String( row.full_name ?? row.owner_name ?? row.resident_name ?? "-" )} </span> ) },
             { key: "block_name", header: "BLOCK" },
             { key: "unit_number", header: "UNIT" },
             { key: "parking_slot", header: "PARKING" },

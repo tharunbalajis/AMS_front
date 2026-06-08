@@ -221,7 +221,7 @@ export function BulkImportPage() {
                         <td className="px-3 py-2">{String(r.mobile_primary ?? "")}</td>
                         <td className="px-3 py-2">{String(r._block_name ?? "")}</td>
                         <td className="px-3 py-2">{String(r._unit_number ?? "")}</td>
-                        <td className="px-3 py-2">{String(r.resident_type ?? "")}</td>
+                        <td className="px-3 py-2">{(() => { const s = String(r.resident_type ?? "").toUpperCase(); return s === 'FAMILY' ? 'OWNER' : s; })()}</td>
                         <td className="px-3 py-2">{String(r.move_in_date ?? "—")}</td>
                       </tr>
                     ))}

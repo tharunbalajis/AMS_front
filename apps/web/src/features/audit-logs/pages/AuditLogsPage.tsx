@@ -154,16 +154,16 @@ export function AuditLogsPage() {
           <div className="rounded-lg border border-blue-200 bg-blue-50 p-4">
             <p className="text-xs font-semibold text-blue-700 mb-2">Change diff for {expandedRow.slice(0, 8)}…</p>
             <div className="grid grid-cols-2 gap-4">
-              {row.changes_before && (
+              {(row as any).changes_before && (
                 <div>
                   <p className="text-xs text-gray-500 font-medium mb-1">Before</p>
-                  <pre className="text-xs bg-white rounded p-2 border overflow-auto max-h-40">{JSON.stringify(row.changes_before, null, 2)}</pre>
+                  <pre className="text-xs bg-white rounded p-2 border overflow-auto max-h-40">{JSON.stringify((row as any).changes_before, null, 2)}</pre>
                 </div>
               )}
-              {row.changes_after && (
+              {(row as any).changes_after && (
                 <div>
                   <p className="text-xs text-gray-500 font-medium mb-1">After</p>
-                  <pre className="text-xs bg-white rounded p-2 border overflow-auto max-h-40">{JSON.stringify(row.changes_after, null, 2)}</pre>
+                  <pre className="text-xs bg-white rounded p-2 border overflow-auto max-h-40">{JSON.stringify((row as any).changes_after, null, 2)}</pre>
                 </div>
               )}
             </div>

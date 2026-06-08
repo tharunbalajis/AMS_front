@@ -158,10 +158,10 @@ export function UnitManagementPage() {
           columns={[
             { key: "unit_number", header: "UNIT NO" },
             { key: "block_name", header: "BLOCK" },
-            { key: "floor_number", header: "FLOOR", render: row => <span>{String(row.floor_number ?? row.floor ?? "-")}</span> },
+            { key: "floor_number", header: "FLOOR", render: (row: any) => <span>{String(row.floor_number ?? row.floor ?? "-")}</span> },
             { key: "unit_type", header: "TYPE" },
-            { key: "occupancy_status", header: "STATUS", render: row => <StatusBadge value={String(row.occupancy_status ?? "VACANT") === "VACANT" ? "INACTIVE" : "ACTIVE"} /> },
-            { key: "parking_slots", header: "PARKING", render: row => <span>{String(row.parking_slots ?? row.parking_count ?? "-")}</span> },
+            { key: "occupancy_status", header: "STATUS", render: (row: any) => <StatusBadge value={String(row.occupancy_status ?? "VACANT") === "VACANT" ? "INACTIVE" : "ACTIVE"} /> },
+            { key: "parking_slots", header: "PARKING", render: (row: any) => <span>{String(row.parking_slots ?? row.parking_count ?? "-")}</span> },
           ]}
         />
       )}
