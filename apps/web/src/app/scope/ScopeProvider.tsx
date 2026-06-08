@@ -12,7 +12,7 @@ type ScopeContextValue = {
 const ScopeContext = createContext<ScopeContextValue | undefined>(undefined);
 
 export function ScopeProvider({ children }: { children: ReactNode }) {
-  const [society, setSocietyState] = useState<Society | undefined>({ society_id: 1, society_name: "Green Valley Apartments" });
+  const [society, setSocietyState] = useState<Society | undefined>(undefined);
   const [block, setBlock] = useState<Block | undefined>();
 
   const value = useMemo(

@@ -12,7 +12,7 @@ import {
   UserCircle,
 } from "lucide-react";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import {
   Outlet,
@@ -36,7 +36,7 @@ import { CommandPalette } from "../../features/shared/components/CommandPalette"
 
 import { FeatureErrorBoundary } from "../../features/shared/components/FeatureErrorBoundary";
 
-import { normalizeList } from "@ams/utils";
+import { ACCESS_TOKEN_KEY, normalizeList } from "@ams/utils";
 
 export function AppShell() {
 
@@ -61,6 +61,8 @@ export function AppShell() {
 
   const [notifOpen, setNotifOpen] =
     useState(false);
+
+  const scopeInitialized = useRef(false);
 
   const location = useLocation();
 
@@ -143,6 +145,32 @@ export function AppShell() {
       );
 
   }, []);
+
+  useEffect(() => {
+
+    if (
+      !societiesQuery.isSuccess ||
+      societies.length === 0 ||
+      scopeInitialized.current
+    ) return;
+
+    // On page refresh, user comes from authApi.me query asynchronously.
+    // Wait until user resolves before initializing scope, otherwise we'd
+    // default to society[0] instead of the logged-in user's society.
+    if (!user && Boolean(localStorage.getItem(ACCESS_TOKEN_KEY))) return;
+
+    scopeInitialized.current = true;
+
+    const target = user?.society_id
+      ? (societies.find(
+          (s) => s.society_id === user.society_id
+        ) ?? societies[0])
+      : societies[0];
+
+    setSociety(target);
+
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [societiesQuery.data, user]);
 
   return (
 

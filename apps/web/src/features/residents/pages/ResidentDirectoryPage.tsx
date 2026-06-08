@@ -43,10 +43,11 @@ function AddResidentModal({
   const [form, setForm] = useState<ResidentForm>(EMPTY_FORM);
 
   const unitsQuery = useQuery({
-    queryKey: ["units", societyId],
+    queryKey: ["units", societyId, "VACANT"],
     queryFn: () =>
       residentsApi.getUnits({
         society_id: societyId,
+        occupancy_status: "VACANT",
         page: 1,
         page_size: 200,
       }),
