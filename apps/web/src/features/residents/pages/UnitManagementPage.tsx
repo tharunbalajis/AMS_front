@@ -15,7 +15,7 @@ function AddUnitModal({ societyId, onClose }: { societyId: number; onClose: () =
     queryKey: ["blocks", societyId],
     queryFn: () => residentsApi.getBlocks({ society_id: societyId }),
   });
-  const blocks = normalizeList<Record<string, unknown>>(blocksQuery.data?.data ?? blocksQuery.data);
+  const blocks = normalizeList<Record<string, unknown>>(blocksQuery.data ?? []) ?? [];
 
   const mutation = useMutation({
     mutationFn: () => residentsApi.createUnit({
@@ -96,24 +96,30 @@ export function UnitManagementPage() {
 
   const blocksQuery = useQuery({
     queryKey: ["blocks", queryParams.society_id],
-    queryFn: () => residentsApi.getBlocks({ society_id: queryParams.society_id }),
+    queryFn: async () => {
+      const res = await residentsApi.getBlocks({ society_id: queryParams.society_id });
+      return (res as any)?.data ?? [];
+    },
     enabled: !!queryParams.society_id,
   });
   const blocks = normalizeList<Record<string, unknown>>(blocksQuery.data?.data ?? blocksQuery.data);
 
   const { data: raw, isLoading } = useQuery({
     queryKey: ["units", queryParams, blockId, unitType, status, search],
-    queryFn: () => residentsApi.getUnits({
-      ...queryParams,
-      block_id: blockId || undefined,
-      unit_type: unitType || undefined,
-      occupancy_status: status || undefined,
-      search: search || undefined,
-    }),
+    queryFn: async () => {
+      const res = await residentsApi.getUnits({
+        ...queryParams,
+        block_id: blockId ? Number(blockId) : undefined,
+        unit_type: unitType || undefined,
+        occupancy_status: status || undefined,
+        search: search || undefined,
+      });
+      return (res as any)?.data ?? [];
+    },
     retry: false,
   });
 
-  const rows = normalizeList<Record<string, unknown>>(raw?.data ?? raw);
+  const rows = normalizeList<Record<string, unknown>>(raw ?? []) ;
 
   return (
     <div className="space-y-6">
@@ -159,9 +165,18 @@ export function UnitManagementPage() {
             { key: "unit_number", header: "UNIT NO" },
             { key: "block_name", header: "BLOCK" },
             { key: "floor_number", header: "FLOOR", render: (row: any) => <span>{String(row.floor_number ?? row.floor ?? "-")}</span> },
-            { key: "unit_type", header: "TYPE" },
-            { key: "occupancy_status", header: "STATUS", render: (row: any) => <StatusBadge value={String(row.occupancy_status ?? "VACANT") === "VACANT" ? "INACTIVE" : "ACTIVE"} /> },
-            { key: "parking_slots", header: "PARKING", render: (row: any) => <span>{String(row.parking_slots ?? row.parking_count ?? "-")}</span> },
+            { key: "unit_type", header: "TYPE", render: (row: any) => <span>{String(row.unit_type ?? "-")}</span> },
+            { key: "owner_name", header: "OWNER", render: (row: any) => <span>{String(row.owner_name ?? "—")}</span> },
+            { key: "tenant_name", header: "TENANT", render: (row: any) => <span>{String(row.tenant_name ?? "—")}</span> },
+            {
+              key: "occupancy_status", header: "STATUS",
+              render: (row: any) => {
+                const s = String(row.occupancy_status ?? "VACANT");
+                const cls = s === "RENTED" ? "bg-blue-100 text-blue-800" : s === "OWNER_OCCUPIED" ? "bg-green-100 text-green-800" : "bg-gray-100 text-gray-700";
+                return <span className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-medium ${cls}`}>{s.replace("_", " ")}</span>;
+              }
+            },
+            { key: "parking_slots", header: "PARKING", render: (row: any) => <span>{String(row.parking_slots ?? row.parking_count ?? "0")}</span> },
           ]}
         />
       )}

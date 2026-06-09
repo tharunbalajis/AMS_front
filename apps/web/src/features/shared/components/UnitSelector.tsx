@@ -26,7 +26,7 @@ export function UnitSelector({ societyId, value, onChange, className = "", requi
     queryKey: ["blocks", societyId],
     queryFn: async () => {
       const res = await residentsApi.getBlocks(societyId ? { society_id: societyId } : {});
-      return (res.data as Block[]) ?? [];
+      return ((res as any)?.data ?? []) as Block[];
     },
     enabled: true,
   });
@@ -34,8 +34,8 @@ export function UnitSelector({ societyId, value, onChange, className = "", requi
   const { data: units = [] } = useQuery<Unit[]>({
     queryKey: ["units", societyId],
     queryFn: async () => {
-      const res = await residentsApi.getUnits(societyId ? { society_id: societyId, limit: 500 } : { limit: 500 });
-      const raw = res.data as Unit[] | { data: Unit[] } | { items: Unit[] };
+      const res = await residentsApi.getUnits(societyId ? { society_id: societyId, page_size: 500 } : { page_size: 500 });
+      const raw = ((res as any)?.data ?? res) as Unit[] | { data: Unit[] } | { items: Unit[] };
       if (Array.isArray(raw)) return raw;
       if ("data" in raw && Array.isArray(raw.data)) return raw.data;
       if ("items" in raw && Array.isArray(raw.items)) return raw.items;

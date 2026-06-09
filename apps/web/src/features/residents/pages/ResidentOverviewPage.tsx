@@ -33,7 +33,7 @@ export function ResidentOverviewPage() {
   });
   const { data: unitRaw } = useQuery({
     queryKey: ["units-overview", queryParams],
-    queryFn: () => residentsApi.getUnits({ ...queryParams, limit: 200 }),
+    queryFn: () => residentsApi.getUnits({ ...queryParams, page_size: 200 }),
     retry: false,
   });
 

@@ -64,12 +64,25 @@ function AddResidentWizard({ societyId, onClose }: { societyId: number; onClose:
 
   // queries
   const { queryParams } = useScope();
-  const unitsQuery = useQuery({ queryKey: ["units", societyId, "available_for_owner"], queryFn: () => residentsApi.getUnits({ society_id: societyId, available_for_owner: true, page: 1, page_size: 300 }), retry: false, enabled: !!societyId });
-  const inactiveOwnersQuery = useQuery({ queryKey: ["inactive-owners", societyId, queryParams?.block_id], queryFn: () => residentsApi.getInactiveOwners({ society_id: societyId, block_id: queryParams?.block_id }), retry: false, enabled: !!societyId });
+  const unitsQuery = useQuery({
+    queryKey: ["units", societyId],
+    queryFn: async () => {
+      const res = await residentsApi.getUnits({ society_id: societyId, page: 1, page_size: 300 });
+      return (res as any)?.data ?? [];
+    },
+    retry: false,
+    enabled: !!societyId,
+  });
 
-  const availableUnits = normalizeList<Record<string, any>>(unitsQuery.data && ((unitsQuery.data as any).data ?? unitsQuery.data)) ?? [];
-  const _ownersResp: any = inactiveOwnersQuery.data;
-  const inactiveOwners = (_ownersResp?.data ?? _ownersResp?.items ?? _ownersResp) ?? [];
+  const inactiveOwnersQuery = useQuery({
+    queryKey: ['inactive-owners', societyId],
+    queryFn: () => residentsApi.getInactiveOwners({ society_id: societyId }),
+    retry: false,
+    enabled: !!societyId,
+  });
+
+  const availableUnits = normalizeList<Record<string, any>>(unitsQuery.data ?? []) ?? [];
+  const inactiveOwners = (inactiveOwnersQuery.data as any)?.data ?? [];
   // debug logs removed
 
   const qcInvalidate = () => {
@@ -228,12 +241,12 @@ function AddResidentWizard({ societyId, onClose }: { societyId: number; onClose:
                 {inactiveOwnersQuery.isLoading ? <div className="text-sm text-gray-500">Loading owners…</div> : (
                   <label>
                     <span className="text-sm font-medium text-gray-700">Select Owner</span>
-                    <select value={String(selectedOwner?.id ?? '')} onChange={e => {
-                      const found = inactiveOwners.find((o: any) => String(o.id ?? o.resident_id) === e.target.value);
+                    <select value={String(selectedOwner?.resident_id ?? '')} onChange={e => {
+                      const found = inactiveOwners.find((o: any) => String(o.resident_id) === e.target.value);
                       setSelectedOwner(found ?? null);
                       if (found) {
-                        setSelectedUnit(String(found.unit_id ?? found.unitId ?? ''));
-                        setSelectedBlock(String(found.block_id ?? found.blockId ?? ''));
+                        setSelectedUnit(String(found.unit_id ?? ''));
+                        setSelectedBlock(String(found.block_id ?? ''));
                       }
                       goNext();
                     }} className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm">

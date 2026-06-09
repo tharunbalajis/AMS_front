@@ -1,14 +1,95 @@
 import { http } from "@ams/utils";
 
+export interface ApiResponse<T> {
+  success: boolean;
+  data: T;
+  pagination?: Pagination;
+}
+
+export interface Pagination {
+  page: number;
+  page_size: number;
+  total: number;
+}
+
+export interface InactiveOwner {
+  id: string;
+  resident_id: string;
+  full_name: string;
+  unit_id: number | null;
+  unit_number: string | null;
+  block_name: string | null;
+  block_id: number | null;
+  label: string;
+}
+
+export interface Resident {
+  id: string;
+  full_name: string;
+  email: string | null;
+  mobile_primary: string;
+  resident_type: 'OWNER' | 'TENANT';
+  move_in_date: string | null;
+  move_out_date: string | null;
+  is_active: boolean;
+  society_id: number;
+  unit_id: number | null;
+  owner_resident_id: string | null;
+  unit_number: string | null;
+  unit_type: string | null;
+  block_id: number | null;
+  block_name: string | null;
+  society_name: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface Unit {
+  unit_id: number;
+  unit_number: string;
+  floor: number;
+  unit_type: string | null;
+  block_id: number;
+  block_name: string | null;
+  society_id: number;
+  occupancy_status: 'VACANT' | 'OWNER_OCCUPIED' | 'RENTED';
+  parking_slots: number;
+  owner_id: string | null;
+  owner_name: string | null;
+  tenant_id: string | null;
+  tenant_name: string | null;
+}
+
+export interface Block {
+  block_id: number;
+  block_name: string;
+  total_floors: number;
+  total_units: number;
+  occupied_units: number;
+  description: string | null;
+}
+
 export const residentsApi = {
-  getAll: (params?: Record<string, unknown>) => http.get("/residents", { params }),
-  getById: (id: string) => http.get(`/residents/${id}`),
-  create: (data: Record<string, unknown>) => http.post("/residents", data),
-  
-  update: (id: string, data: Record<string, unknown>) => http.put(`/residents/${id}`, data),
-  remove: (id: string) => http.delete(`/residents/${id}`),
-  getUnits: (params?: Record<string, unknown>) => http.get("/units", { params }),
-  getBlocks: (params?: Record<string, unknown>) => http.get("/blocks", { params }),
+  getAll: (params?: Record<string, unknown>) =>
+    http.get<ApiResponse<Resident[]>>("/residents", { params }).then(r => r.data),
+
+  getById: (id: string) =>
+    http.get<ApiResponse<Resident>>(`/residents/${id}`).then(r => r.data),
+
+  create: (data: Record<string, unknown>) =>
+    http.post<ApiResponse<Record<string, unknown>>>("/residents", data).then(r => r.data),
+
+  update: (id: string, data: Record<string, unknown>) =>
+    http.put<ApiResponse<Record<string, unknown>>>(`/residents/${id}`, data).then(r => r.data),
+
+  remove: (id: string) =>
+    http.delete<ApiResponse<Record<string, unknown>>>(`/residents/${id}`).then(r => r.data),
+
+  getUnits: (params?: { society_id?: number; block_id?: number; search?: string; page?: number; page_size?: number; unit_type?: string; occupancy_status?: string }) =>
+    http.get<ApiResponse<Unit[]>>("/units", { params }).then(r => r.data),
+
+  getBlocks: (params?: { society_id?: number }) =>
+    http.get<ApiResponse<Block[]>>("/blocks", { params }).then(r => r.data),
 
   exportCsv: async (societyId?: number) => {
     const response = await http.get("/residents/export", {
@@ -24,67 +105,74 @@ export const residentsApi = {
   },
 
   importPreview: (rows: Record<string, unknown>[]) =>
-    http.post<{ total: number; valid: Record<string, unknown>[]; invalid: Record<string, unknown>[] }>(
+    http.post<ApiResponse<{ total: number; valid: Record<string, unknown>[]; invalid: Record<string, unknown>[] }>>(
       "/residents/import", { rows }
-    ),
+    ).then(r => r.data),
 
   importConfirm: (rows: Record<string, unknown>[]) =>
-    http.post<{ inserted: number; message: string }>("/residents/import/confirm", { rows }),
+    http.post<ApiResponse<{ inserted: number; message: string }>>("/residents/import/confirm", { rows }).then(r => r.data),
 
   getTimeline: (id: string) =>
-    http.get<{ resident: Record<string, unknown>; events: Record<string, unknown>[] }>(`/residents/${id}/timeline`),
+    http.get<ApiResponse<{ resident: Record<string, unknown>; events: Record<string, unknown>[] }>>(`/residents/${id}/timeline`).then(r => r.data),
 
-  getVehicles: (params?: Record<string, unknown>) => http.get('/vehicles', { params }),
-  addVehicle: (data: Record<string, unknown>) => http.post(`/residents/${data.resident_id}/vehicles`, data),
+  getVehicles: (params?: Record<string, unknown>) =>
+    http.get<ApiResponse<Record<string, unknown>[]>>('/vehicles', { params }).then(r => r.data),
 
-  getPets: (params?: Record<string, unknown>) => http.get('/pets', { params }),
-  addPet: (data: Record<string, unknown>) => http.post(`/residents/${data.resident_id}/pets`, data),
+  addVehicle: (data: Record<string, unknown>) =>
+    http.post<ApiResponse<Record<string, unknown>>>(`/residents/${data.resident_id}/vehicles`, data).then(r => r.data),
 
-  getLeases: (params?: Record<string, unknown>) => http.get("/residents/leases", { params }),
-  createLease: (data: Record<string, unknown>) => http.post("/residents/leases", data),
-  updateLease: (id: string, data: Record<string, unknown>) => http.put(`/residents/leases/${id}`, data),
+  getPets: (params?: Record<string, unknown>) =>
+    http.get<ApiResponse<Record<string, unknown>[]>>('/pets', { params }).then(r => r.data),
 
-  createBlock: (data: Record<string, unknown>) => http.post('/blocks', data),
-  updateBlock: (id: number, data: Record<string, unknown>) => http.put(`/blocks/${id}`, data),
+  addPet: (data: Record<string, unknown>) =>
+    http.post<ApiResponse<Record<string, unknown>>>(`/residents/${data.resident_id}/pets`, data).then(r => r.data),
 
-  createUnit: (data: Record<string, unknown>) => http.post('/units', data),
+  getLeases: (params?: Record<string, unknown>) =>
+    http.get<ApiResponse<Record<string, unknown>[]>>("/residents/leases", { params }).then(r => r.data),
 
-  // Parking slots helper (derives from unit data)
+  createLease: (data: Record<string, unknown>) =>
+    http.post<ApiResponse<Record<string, unknown>>>("/residents/leases", data).then(r => r.data),
+
+  updateLease: (id: string, data: Record<string, unknown>) =>
+    http.put<ApiResponse<Record<string, unknown>>>(`/residents/leases/${id}`, data).then(r => r.data),
+
+  createBlock: (data: Record<string, unknown>) =>
+    http.post<ApiResponse<Block>>('/blocks', data).then(r => r.data),
+
+  updateBlock: (id: number, data: Record<string, unknown>) =>
+    http.put<ApiResponse<Block>>(`/blocks/${id}`, data).then(r => r.data),
+
+  createUnit: (data: Record<string, unknown>) =>
+    http.post<ApiResponse<Unit>>('/units', data).then(r => r.data),
+
   getParkingSlots: (unitId: number, societyId?: number) =>
-    http.get(`/units/${unitId}`, { params: societyId ? { society_id: societyId } : {} }),
+    http.get<ApiResponse<Unit>>(`/units/${unitId}`, { params: societyId ? { society_id: societyId } : {} }).then(r => r.data),
 
-  // Get inactive owners (for tenant assignment)
-  // Accepts either a societyId number or a params object { society_id?, block_id? }
-  getInactiveOwners: (arg?: number | Record<string, unknown>) => {
-    let params: Record<string, unknown> = { page: 1, page_size: 200 };
-    if (typeof arg === 'number') params = { ...params, society_id: arg, resident_type: 'OWNER', is_active: false };
-    else if (arg && typeof arg === 'object') params = { ...params, ...arg };
-    // prefer dedicated endpoint if backend supports it
-    return http.get('/residents/inactive-owners', { params });
-  },
+  getInactiveOwners: (params?: { society_id?: number; block_id?: number }) =>
+    http.get<ApiResponse<InactiveOwner[]>>('/residents/inactive-owners', { params }).then(r => r.data),
 
-  // Bulk create: create unit then owner in sequence (utility)
   createUnitWithOwner: async (unitData: Record<string, unknown>, ownerData: Record<string, unknown> | null) => {
-    const unit = await http.post('/units', unitData);
-    const unitId = (unit && (unit as any).data && (unit as any).data.unit_id) ?? (unit as any).unit_id;
+    const unit = await residentsApi.createUnit(unitData);
+    const unitId = (unit as any)?.data?.unit_id ?? (unit as any)?.unit_id;
     if (ownerData && unitId) {
-      await http.post('/residents', { ...ownerData, unit_id: unitId });
+      await residentsApi.create({ ...ownerData, unit_id: unitId });
     }
     return unit;
   },
 
-  // End lease + move out together
   endLeaseAndMoveOut: async (residentId: string, leaseId: string, moveOutDate: string) => {
-    await http.put(`/residents/leases/${leaseId}`, { status: 'TERMINATED' });
-    return http.put(`/residents/${residentId}/move-out`, { move_out_date: moveOutDate });
+    await residentsApi.updateLease(leaseId, { status: 'TERMINATED' });
+    return residentsApi.moveOut(residentId, { move_out_date: moveOutDate });
   },
 
-  moveOut: (id: string, data: Record<string, unknown>) => http.put(`/residents/${id}/move-out`, data),
+  moveOut: (id: string, data: Record<string, unknown>) =>
+    http.put<ApiResponse<Record<string, unknown>>>(`/residents/${id}/move-out`, data).then(r => r.data),
 
-  getResidentQR: (id: string) => http.get(`/residents/${id}/qr`),
+  getResidentQR: (id: string) =>
+    http.get<ApiResponse<Record<string, unknown>>>(`/residents/${id}/qr`).then(r => r.data),
 
   importPreviewWithSociety: (rows: Record<string, unknown>[], societyId?: number) =>
-    http.post<{ total: number; valid: Record<string, unknown>[]; invalid: Record<string, unknown>[] }>(
+    http.post<ApiResponse<{ total: number; valid: Record<string, unknown>[]; invalid: Record<string, unknown>[] }>>(
       '/residents/import', { rows, society_id: societyId }
-    ),
+    ).then(r => r.data),
 };

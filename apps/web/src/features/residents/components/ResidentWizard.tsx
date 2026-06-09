@@ -41,11 +41,14 @@ export default function ResidentWizard({ societyId, onClose }: { societyId: numb
 
   // Fetch helpers
   const unitsQ = useQuery({
-    queryKey: ["units", societyId, "available_for_owner"],
-    queryFn: () => residentsApi.getUnits({ society_id: societyId, available_for_owner: true, page: 1, page_size: 500 }),
+    queryKey: ["units", societyId],
+    queryFn: async () => {
+      const res = await residentsApi.getUnits({ society_id: societyId, page: 1, page_size: 500 });
+      return (res as any)?.data?.data ?? (res as any)?.data ?? [];
+    },
     enabled: mode === "OWNER" || mode === null,
   });
-  const units = normalizeList<any>(unitsQ.data?.data ?? unitsQ.data) ?? [];
+  const units = normalizeList<any>(unitsQ.data ?? []) ?? [];
 
   const mapResidentType = (v: unknown) => {
     const s = String(v ?? "").toUpperCase();
@@ -54,14 +57,14 @@ export default function ResidentWizard({ societyId, onClose }: { societyId: numb
 
   // Fetch inactive residents and defensively map response shapes
   const inactiveOwnersQ = useQuery({
-    queryKey: ["inactive-owners", societyId, queryParams?.block_id],
-    queryFn: () => residentsApi.getInactiveOwners({ society_id: societyId, block_id: queryParams?.block_id }),
-    enabled: mode === "TENANT",
+    queryKey: ['inactive-owners', societyId],
+    queryFn: () => residentsApi.getInactiveOwners({ society_id: societyId }),
+    enabled: mode === 'TENANT',
+    staleTime: 30_000,
   });
-  const _inactiveResp: any = inactiveOwnersQ.data;
-  const inactiveOwnersRaw = (_inactiveResp?.data ?? _inactiveResp?.items ?? _inactiveResp?.results ?? _inactiveResp) ?? [];
-  // ensure we have an array shape
-  const inactiveOwners = Array.isArray(inactiveOwnersRaw) ? inactiveOwnersRaw : normalizeList<any>(inactiveOwnersRaw) ?? [];
+
+  // http returns AxiosResponse; .data = body { success, data: [...] }; .data.data = array
+  const inactiveOwners: any[] = (inactiveOwnersQ.data as any)?.data?.data ?? [];
 
   // debug logs removed
 
@@ -306,16 +309,17 @@ export default function ResidentWizard({ societyId, onClose }: { societyId: numb
                     <Select value={selectedOwnerId} onChange={e => {
                       const val = e.target.value;
                       setSelectedOwnerId(val);
-                      const found = inactiveOwners.find((x: any) => String(x.id ?? x.resident_id) === val);
-                      if (!found) return;
-                      // set both owner id and unit autofill
-                      setSelectedUnit(String(found.unit_id ?? found.unitId ?? found.unit ?? ''));
-                      setSelectedBlockId(String(found.block_id ?? found.blockId ?? found.block_name ?? ''));
+                      const selected = inactiveOwners.find((o: any) => String(o.resident_id) === val);
+                      if (selected) {
+                        setSelectedOwnerId(String(selected.resident_id));
+                        setSelectedUnit(String(selected.unit_id ?? ''));
+                        setSelectedBlockId(String(selected.block_id ?? ''));
+                      }
                     }}>
                       <option value="">Select owner</option>
                       {inactiveOwners.map((o: any) => {
-                        const id = String(o.id ?? o.resident_id ?? '');
-                        const label = `${String(o.block_name ?? o.block ?? '-') } — ${String(o.unit_number ?? o.unit_no ?? o.unit_number ?? '-') } (Owner: ${String(o.full_name ?? o.name ?? '-')})`;
+                        const id = String(o.resident_id ?? '');
+                        const label = `${o.block_name ? o.block_name + ' — ' : ''}${o.unit_number ?? 'No Unit'} (${o.full_name})`;
                         return <option key={id} value={id}>{label}</option>;
                       })}
                     </Select>
