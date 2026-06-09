@@ -14,6 +14,8 @@ import {
   type ReactNode,
 } from "react";
 
+import { useQueryClient } from "@tanstack/react-query";
+
 /* -------------------------------------------------- */
 /* TYPES */
 /* -------------------------------------------------- */
@@ -77,6 +79,8 @@ export function ScopeProvider({
 }: {
   children: ReactNode;
 }) {
+
+  const qc = useQueryClient();
 
   /* -------------------------------------------------- */
   /* STATE */
@@ -174,6 +178,20 @@ export function ScopeProvider({
         );
       }
 
+      /* Clear old society's React Query cache synchronously to prevent stale flash */
+      if (society?.society_id && society.society_id !== next?.society_id) {
+
+        const oldId = Number(society.society_id);
+
+        qc.removeQueries({ queryKey: ["residents", oldId] });
+        qc.removeQueries({ queryKey: ["units", oldId] });
+        qc.removeQueries({ queryKey: ["blocks", oldId] });
+        qc.removeQueries({ queryKey: ["leases", oldId] });
+        qc.removeQueries({ queryKey: ["dashboard-stats", oldId] });
+        qc.removeQueries({ queryKey: ["occupancy-heatmap", oldId] });
+        qc.removeQueries({ queryKey: ["inactive-owners", oldId] });
+      }
+
       /* IMPORTANT */
       /* RESET BLOCK ON SOCIETY CHANGE */
 
@@ -185,7 +203,7 @@ export function ScopeProvider({
 
       setSocietyState(next);
 
-    }, []);
+    }, [society, qc]);
 
   /* -------------------------------------------------- */
   /* SET BLOCK */

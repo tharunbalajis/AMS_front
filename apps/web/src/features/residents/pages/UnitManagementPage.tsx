@@ -20,7 +20,6 @@ import {
 } from "lucide-react";
 
 import {
-  useEffect,
   useMemo,
   useState,
 } from "react";
@@ -34,6 +33,8 @@ import {
 } from "@/api/residents.api";
 
 import { useScope } from "@/app/scope/ScopeProvider";
+import { useFilterReset } from "@/hooks/useFilterReset";
+import { QK } from "@/lib/queryKeys";
 
 /* -------------------------------------------------- */
 /* ADD UNIT MODAL */
@@ -148,7 +149,11 @@ function AddUnitModal({
         );
 
         await qc.invalidateQueries({
-          queryKey: ["units"],
+          queryKey: QK.units(societyId),
+        });
+
+        await qc.invalidateQueries({
+          queryKey: QK.blocks(societyId),
         });
 
         onClose();
@@ -394,9 +399,6 @@ export function UnitManagementPage() {
     selectedSocietyId,
   } = useScope();
 
-  const qc =
-    useQueryClient();
-
   /* -------------------------------------------------- */
   /* FILTERS */
 /* -------------------------------------------------- */
@@ -430,24 +432,12 @@ export function UnitManagementPage() {
   /* RESET */
 /* -------------------------------------------------- */
 
-  useEffect(() => {
-
+  useFilterReset(selectedSocietyId, () => {
     setBlockId("");
-
     setUnitType("");
-
     setStatus("");
-
     setSearch("");
-
-    qc.removeQueries({
-      queryKey: ["units"],
-    });
-
-  }, [
-    selectedSocietyId,
-    qc,
-  ]);
+  });
 
   /* -------------------------------------------------- */
   /* BLOCKS */

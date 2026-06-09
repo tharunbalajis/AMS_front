@@ -1,3 +1,4 @@
+
 import {
   Button,
   DataTable,
@@ -9,7 +10,6 @@ import {
 import {
   useMutation,
   useQuery,
-  useQueryClient,
 } from "@tanstack/react-query";
 
 import {
@@ -20,7 +20,6 @@ import {
 } from "lucide-react";
 
 import {
-  useEffect,
   useMemo,
   useState,
 } from "react";
@@ -31,9 +30,13 @@ import { residentsApi } from "@/api/residents.api";
 
 import { useScope } from "@/app/scope/ScopeProvider";
 
-import { BulkActionBar } from "../../shared/components/BulkActionBar";
+import { useFilterReset } from "@/hooks/useFilterReset";
+import { useScopedInvalidate } from "@/hooks/useScopedInvalidate";
+import { QK } from "@/lib/queryKeys";
 
+import { BulkActionBar } from "../../shared/components/BulkActionBar";
 import { EditResidentModal } from "../components/EditResidentModal";
+import ResidentWizard from "../components/ResidentWizard";
 
 /* -------------------------------------------------- */
 /* ROW ACTIONS */
@@ -41,20 +44,18 @@ import { EditResidentModal } from "../components/EditResidentModal";
 
 function RowActions({
   row,
-  onRefresh,
-  onEdit,
+  societyId,
+  blockId,
 }: {
   row: Record<string, unknown>;
-
-  onRefresh: () => void;
-
-  onEdit: (
-    row: Record<string, unknown>
-  ) => void;
+  societyId: number;
+  blockId?: number;
 }) {
 
   const [open, setOpen] =
     useState(false);
+
+  const { invalidateAfterResidentChange } = useScopedInvalidate();
 
   const id = String(
     row.id ?? ""
@@ -75,14 +76,17 @@ function RowActions({
           "Resident moved out"
         );
 
-        await onRefresh();
+        invalidateAfterResidentChange(societyId, blockId);
 
         setOpen(false);
+      },
+
+      onError: (e: any) => {
+        toast.error(e?.response?.data?.message ?? e?.message ?? "Move out failed");
       },
     });
 
   return (
-
     <div className="relative">
 
       <button
@@ -100,14 +104,9 @@ function RowActions({
 
           <button
             type="button"
-
             onClick={() => {
-
-              onEdit(row);
-
               setOpen(false);
             }}
-
             className="w-full px-4 py-2 text-left text-sm hover:bg-gray-50"
           >
             Edit
@@ -115,16 +114,14 @@ function RowActions({
 
           <button
             type="button"
-
+            disabled={moveOut.isPending}
             onClick={() =>
               moveOut.mutate()
             }
-
             className="w-full px-4 py-2 text-left text-sm hover:bg-gray-50"
           >
             Move Out
           </button>
-
         </div>
       )}
     </div>
@@ -138,12 +135,14 @@ function RowActions({
 export function ResidentDirectoryPage() {
 
   const {
-    queryParams,
-    society,
+    selectedSocietyId,
+    selectedBlockId,
   } = useScope();
 
-  const qc =
-    useQueryClient();
+  const { invalidateAfterResidentChange } = useScopedInvalidate();
+
+  const societyId = selectedSocietyId;
+  const blockId = selectedBlockId;
 
   /* -------------------------------------------------- */
   /* FILTERS */
@@ -180,50 +179,15 @@ export function ResidentDirectoryPage() {
   ] = useState(false);
 
   /* -------------------------------------------------- */
-  /* SOCIETY */
+  /* RESET FILTERS ON SOCIETY CHANGE */
   /* -------------------------------------------------- */
 
-  const societyId =
-    useMemo(() => {
-
-      return Number(
-
-        (queryParams as any)
-          ?.society_id ??
-
-        society?.society_id ??
-
-        0
-
-      ) || undefined;
-
-    }, [
-      queryParams,
-      society,
-    ]);
-
-  /* -------------------------------------------------- */
-  /* RESET ON SOCIETY CHANGE */
-  /* -------------------------------------------------- */
-
-  useEffect(() => {
-
+  useFilterReset(societyId, () => {
     setSearch("");
-
     setType("");
-
     setStatus("");
-
     setSelectedIds([]);
-
-    qc.removeQueries({
-      queryKey: ["residents"],
-    });
-
-  }, [
-    societyId,
-    qc,
-  ]);
+  });
 
   /* -------------------------------------------------- */
   /* QUERY */
@@ -232,12 +196,10 @@ export function ResidentDirectoryPage() {
   const {
     data,
     isLoading,
-    refetch,
   } = useQuery({
 
     queryKey: [
-      "residents",
-      societyId,
+      ...QK.residents(societyId!, blockId),
       search,
       type,
       status,
@@ -245,36 +207,31 @@ export function ResidentDirectoryPage() {
 
     queryFn: async () => {
 
-      const response =
-        await residentsApi.getAll({
+      return residentsApi.getAll({
 
-          society_id:
-            societyId,
+        society_id:
+          societyId,
 
-          page: 1,
+        block_id:
+          blockId || undefined,
 
-          page_size: 100,
+        page: 1,
 
-          search:
-            search || undefined,
+        page_size: 100,
 
-          resident_type:
-            type || undefined,
+        search:
+          search || undefined,
 
-          is_active:
-            status === "active"
-              ? true
-              : status === "inactive"
-              ? false
-              : undefined,
-        });
+        resident_type:
+          type || undefined,
 
-      console.log(
-        "RESIDENT RAW RESPONSE",
-        response
-      );
-
-      return response;
+        is_active:
+          status === "active"
+            ? true
+            : status === "inactive"
+            ? false
+            : undefined,
+      });
     },
 
     enabled:
@@ -294,21 +251,10 @@ export function ResidentDirectoryPage() {
   const rows =
     useMemo(() => {
 
-      const fetched =
-        Array.isArray(data)
-          ? data
-          : data?.data || [];
+      const raw =
+        Array.isArray(data) ? data : (data as any)?.data ?? [];
 
-      console.log(
-        "FINAL RESIDENT ROWS",
-        fetched
-      );
-
-      return Array.isArray(
-        fetched
-      )
-        ? fetched.filter(Boolean)
-        : [];
+      return (Array.isArray(raw) ? raw : []).filter(Boolean);
 
     }, [data]);
 
@@ -344,7 +290,6 @@ export function ResidentDirectoryPage() {
     };
 
   return (
-
     <div className="space-y-6">
 
       {/* HEADER */}
@@ -367,7 +312,6 @@ export function ResidentDirectoryPage() {
               ? "Loading residents..."
               : `${rows.length} residents registered`}
           </p>
-
         </div>
 
         <div className="flex gap-2">
@@ -377,7 +321,6 @@ export function ResidentDirectoryPage() {
             onClick={handleExport}
             disabled={exporting}
           >
-
             {exporting ? (
 
               <Loader2
@@ -401,16 +344,12 @@ export function ResidentDirectoryPage() {
               setAddOpen(true)
             }
           >
-
             <UserPlus
               size={15}
               className="mr-1"
             />
-
             Add Resident
-
           </Button>
-
         </div>
       </div>
 
@@ -420,11 +359,8 @@ export function ResidentDirectoryPage() {
 
         <SearchBox
           className="min-w-[280px] flex-1"
-
           placeholder="Search by name..."
-
           value={search}
-
           onChange={(e) =>
             setSearch(
               e.target.value
@@ -434,16 +370,13 @@ export function ResidentDirectoryPage() {
 
         <Select
           className="w-44"
-
           value={type}
-
           onChange={(e) =>
             setType(
               e.target.value
             )
           }
         >
-
           <option value="">
             All Types
           </option>
@@ -455,21 +388,17 @@ export function ResidentDirectoryPage() {
           <option value="TENANT">
             Tenant
           </option>
-
         </Select>
 
         <Select
           className="w-44"
-
           value={status}
-
           onChange={(e) =>
             setStatus(
               e.target.value
             )
           }
         >
-
           <option value="">
             All Status
           </option>
@@ -481,28 +410,21 @@ export function ResidentDirectoryPage() {
           <option value="inactive">
             Inactive
           </option>
-
         </Select>
-
       </div>
 
       {/* TABLE */}
 
       <DataTable
         title="Residents"
-
-        rows={rows}
-
+        rows={Array.isArray(rows) ? rows : []}
         isLoading={isLoading}
-
-        emptyMessage={
+        emptyText={
           isLoading
             ? "Loading residents..."
             : "No residents found"
         }
-
         columns={[
-
           {
             key: "full_name",
             header: "NAME",
@@ -520,13 +442,11 @@ export function ResidentDirectoryPage() {
 
           {
             key: "resident_type",
-
             header: "TYPE",
 
             render: (
               row: any
             ) => (
-
               <StatusBadge
                 value={String(
                   row.resident_type
@@ -552,67 +472,30 @@ export function ResidentDirectoryPage() {
 
               <RowActions
                 row={row}
-
-                onRefresh={() =>
-                  refetch()
-                }
-
-                onEdit={(
-                  resident
-                ) => {
-
-                  setEditingResident(
-                    resident
-                  );
-
-                  setEditOpen(true);
-                }}
+                societyId={societyId!}
+                blockId={blockId}
               />
             ),
           },
         ]}
       />
 
-      {/* ADD MODAL */}
+      {/* MODALS */}
 
-      {addOpen && (
-
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-
-          <div className="w-full max-w-md rounded-xl bg-white p-6 shadow-xl">
-
-            <h2 className="mb-4 text-xl font-semibold">
-              Add Resident
-            </h2>
-
-            <p className="text-sm text-gray-500">
-              Resident wizard component is not created yet.
-            </p>
-
-            <div className="mt-6 flex justify-end">
-
-              <Button
-                onClick={() =>
-                  setAddOpen(false)
-                }
-              >
-                Close
-              </Button>
-
-            </div>
-
-          </div>
-
-        </div>
+      {addOpen && societyId && (
+        <ResidentWizard
+          societyId={societyId}
+          onClose={() => {
+            setAddOpen(false);
+            invalidateAfterResidentChange(societyId, blockId);
+          }}
+        />
       )}
-
-      {/* EDIT MODAL */}
 
       {editOpen &&
         editingResident && (
 
         <EditResidentModal
-
           resident={
             editingResident
           }
@@ -629,7 +512,6 @@ export function ResidentDirectoryPage() {
       {/* BULK ACTIONS */}
 
       <BulkActionBar
-
         selectedIds={
           selectedIds
         }
@@ -641,7 +523,6 @@ export function ResidentDirectoryPage() {
         }
 
         actions={[
-
           {
             label:
               "Export Selected",
