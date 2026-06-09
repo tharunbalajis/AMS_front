@@ -1,21 +1,21 @@
 import { Card, Skeleton } from "@ams/ui";
-import { formatCurrency, normalizeList } from "@ams/utils";
+import { normalizeList } from "@ams/utils";
 import { useQuery } from "@tanstack/react-query";
 import {
   AlertCircle,
-  BadgeDollarSign,
+  ArrowRight,
   Building,
   Building2,
-  Clock,
-  Download,
-  FileBarChart,
+  ClipboardList,
+  FileText,
   Home,
   Shield,
+  TrendingUp,
   Users,
 } from "lucide-react";
+import { useMemo } from "react";
+import { Link } from "react-router-dom";
 import {
-  Area,
-  AreaChart,
   Bar,
   BarChart,
   CartesianGrid,
@@ -33,102 +33,117 @@ import {
 import { dashboardApi } from "../../../app/api/client";
 import { useScope } from "../../../app/scope/ScopeProvider";
 
-const REVENUE_DATA = [
-  { month: "Aug", revenue: 1850000, expenses: 620000 },
-  { month: "Sep", revenue: 1920000, expenses: 680000 },
-  { month: "Oct", revenue: 1880000, expenses: 590000 },
-  { month: "Nov", revenue: 2100000, expenses: 720000 },
-  { month: "Dec", revenue: 2050000, expenses: 640000 },
-  { month: "Jan", revenue: 2230000, expenses: 710000 },
-];
-
-const COLLECTION_TREND = [
-  { month: "Aug", collected: 1620000 },
-  { month: "Sep", collected: 1780000 },
-  { month: "Oct", collected: 1720000 },
-  { month: "Nov", collected: 1950000 },
-  { month: "Dec", collected: 1890000 },
-  { month: "Jan", collected: 1980000 },
-];
-
-const TOP_DEFAULTERS = [
-  { name: "Priya Patel", unit: "B-202", amount: 7800 },
-  { name: "Rahul Kumar", unit: "C-305", amount: 9200 },
-  { name: "Sneha Gupta", unit: "A-204", amount: 3500 },
-  { name: "Deepa Raj", unit: "A-304", amount: 12000 },
-  { name: "Ravi Pillai", unit: "D-108", amount: 6500 },
-];
-
-const OCCUPANCY_BY_SOCIETY = [
-  { name: "Block A", pct: 94 },
-  { name: "Block B", pct: 88 },
-  { name: "Block C", pct: 92 },
-  { name: "Block D", pct: 78 },
-  { name: "Block E", pct: 85 },
-];
-
 export function DashboardPage() {
   const { queryParams, society } = useScope();
+
   const overview = useQuery({
     queryKey: ["dashboard-overview", queryParams],
     queryFn: () => dashboardApi.overview(queryParams),
   });
+
   const statsQuery = useQuery({
     queryKey: ["dashboard-stats", society?.society_id],
     queryFn: () => dashboardApi.stats(society?.society_id),
   });
-  const data = overview.data;
+
+  const data  = overview.data;
   const stats = statsQuery.data;
 
-  const occupied = stats?.occupied_units ?? data?.units.filter((u) => String(u.occupancy_status ?? "").toUpperCase() === "OCCUPIED").length ?? 0;
-  const totalUnits = stats?.total_units ?? data?.units.length ?? 0;
-  const occupancyPct = stats?.occupancy_pct?.toFixed(1) ?? (totalUnits ? ((occupied / totalUnits) * 100).toFixed(1) : "0.0");
-  const openComplaints = stats?.open_complaints ?? data?.complaints.filter((c) => ["OPEN", "ASSIGNED", "IN_PROGRESS"].includes(String(c.status ?? "").toUpperCase())).length ?? 0;
-  const pendingPaymentsCount = stats?.pending_payments ?? 0;
-  const visitorsToday = stats?.visitors_today ?? data?.visitors.length ?? 0;
-  const activeStaff = stats?.active_staff ?? data?.staff.length ?? 0;
-  const totalResidents = stats?.total_residents ?? data?.residents.length ?? 0;
+  const residents   = useMemo(() => normalizeList(data?.residents ?? []), [data]);
+  const units       = useMemo(() => normalizeList(data?.units ?? []),     [data]);
+  const complaints  = useMemo(() => normalizeList(data?.complaints ?? []), [data]);
 
-  const monthlyRevenue = data?.invoices.reduce((s, i) => s + Number(i.total_amount ?? 0), 0) ?? 0;
+  // ── KPIs ──────────────────────────────────────────────────────────────────
+  const totalResidents  = stats?.total_residents   ?? residents.length;
+  const totalUnits      = stats?.total_units        ?? units.length;
+  const activeResidents = residents.filter(r => r.is_active === true || r.is_active === "true").length;
+  const owners          = residents.filter(r => String(r.resident_type ?? "").toUpperCase() === "OWNER").length;
+  const tenants         = residents.filter(r => String(r.resident_type ?? "").toUpperCase() === "TENANT").length;
+  const occupied        = stats?.occupied_units     ?? units.filter(u => String(u.occupancy_status ?? "").toUpperCase() !== "VACANT").length;
+  const openComplaints  = stats?.open_complaints    ?? complaints.filter(c => !["RESOLVED", "CLOSED"].includes(String(c.status ?? "").toUpperCase())).length;
+  const occupancyPct    = totalUnits ? ((occupied / totalUnits) * 100).toFixed(1) : "0.0";
+  const visitorsToday   = stats?.visitors_today     ?? (data?.visitors ?? []).length;
+  const activeStaff     = stats?.active_staff       ?? (data?.staff ?? []).length;
 
-  const statusCounts = {
-    Open: data?.complaints.filter((c) => String(c.status ?? "").toUpperCase() === "OPEN").length ?? 0,
-    Assigned: data?.complaints.filter((c) => String(c.status ?? "").toUpperCase() === "ASSIGNED").length ?? 0,
-    InProgress: data?.complaints.filter((c) => String(c.status ?? "").toUpperCase() === "IN_PROGRESS").length ?? 0,
-    Resolved: data?.complaints.filter((c) => String(c.status ?? "").toUpperCase() === "RESOLVED").length ?? 0,
-  };
-  const complaintPie = [
-    { name: "Open", value: statusCounts.Open || openComplaints, color: "#3b82f6" },
-    { name: "Assigned", value: statusCounts.Assigned, color: "#8b5cf6" },
-    { name: "In Progress", value: statusCounts.InProgress, color: "#f59e0b" },
-    { name: "Resolved", value: statusCounts.Resolved, color: "#10b981" },
-  ];
+  // ── Chart 1: Residents by block ───────────────────────────────────────────
+  const residentsByBlock = useMemo(() => {
+    const map = new Map<string, number>();
+    residents.forEach(r => {
+      const key = String(r.block_name ?? "Unknown");
+      map.set(key, (map.get(key) ?? 0) + 1);
+    });
+    return Array.from(map.entries())
+      .map(([name, count]) => ({ name, count }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 8);
+  }, [residents]);
 
-  const recentActivities = [
-    ...(data?.residents.slice(0, 2).map((r) => ({ label: String(r.full_name ?? "Resident"), meta: `Move-in · ${String(r.unit_number ?? "")} ${String(r.block_name ?? "")}`, color: "bg-blue-500" })) ?? []),
-    ...(data?.complaints.slice(0, 2).map((c) => ({ label: String(c.title ?? "Complaint"), meta: `${String(c.category_name ?? "")} · ${String(c.status ?? "")}`, color: "bg-amber-500" })) ?? []),
-    ...(data?.visitors.slice(0, 2).map((v) => ({ label: String(v.visitor_name ?? "Visitor"), meta: `Entry · ${String(v.unit_id ?? "")}`, color: "bg-green-500" })) ?? []),
-  ];
-  const activities = recentActivities.length ? recentActivities : [
-    { label: "No recent activity", meta: "Check back soon", color: "bg-gray-400" },
-  ];
+  // ── Chart 2: Owner vs Tenant split ───────────────────────────────────────
+  const ownerTenantData = useMemo(() => [
+    { name: "Owners",  value: owners  || (residents.length - tenants), color: "#2563eb" },
+    { name: "Tenants", value: tenants,                                  color: "#7c3aed" },
+  ], [owners, tenants, residents.length]);
+
+  // ── Chart 3: Unit occupancy by block ─────────────────────────────────────
+  const occupancyByBlock = useMemo(() => {
+    const map = new Map<string, { occupied: number; vacant: number }>();
+    units.forEach(u => {
+      const key = String(u.block_name ?? "Unknown");
+      const cur = map.get(key) ?? { occupied: 0, vacant: 0 };
+      if (String(u.occupancy_status ?? "").toUpperCase() !== "VACANT") cur.occupied += 1;
+      else cur.vacant += 1;
+      map.set(key, cur);
+    });
+    return Array.from(map.entries())
+      .map(([name, v]) => ({ name, occupied: v.occupied, vacant: v.vacant }))
+      .slice(0, 8);
+  }, [units]);
+
+  // ── Chart 4: Move-ins by month (last 6 months) ────────────────────────────
+  const moveInsByMonth = useMemo(() => {
+    const now = new Date();
+    const months = Array.from({ length: 6 }, (_, i) => {
+      const d = new Date(now.getFullYear(), now.getMonth() - 5 + i, 1);
+      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+      const label = d.toLocaleDateString("en-IN", { month: "short", year: "2-digit" });
+      return { key, label };
+    });
+    const counts = new Map(months.map(m => [m.key, 0]));
+    residents.forEach(r => {
+      if (!r.move_in_date) return;
+      const key = String(r.move_in_date).slice(0, 7);
+      if (counts.has(key)) counts.set(key, (counts.get(key) ?? 0) + 1);
+    });
+    return months.map(m => ({ month: m.label, moveIns: counts.get(m.key) ?? 0 }));
+  }, [residents]);
+
+  // ── Recent residents ─────────────────────────────────────────────────────
+  const recentResidents = useMemo(() =>
+    [...residents]
+      .sort((a, b) => new Date(String(b.created_at ?? 0)).getTime() - new Date(String(a.created_at ?? 0)).getTime())
+      .slice(0, 5),
+    [residents]
+  );
 
   const isLoading = overview.isLoading || statsQuery.isLoading;
 
-  const kpiRow1 = [
-    { label: "TOTAL UNITS", value: totalUnits, icon: Home, color: "bg-purple-50 text-purple-700 border-purple-100" },
-    { label: "OCCUPIED UNITS", value: occupied, subtext: `${occupancyPct}% occupancy`, icon: Home, color: "bg-green-50 text-green-700 border-green-100" },
-    { label: "RESIDENTS", value: totalResidents, icon: Users, color: "bg-teal-50 text-teal-700 border-teal-100" },
-    { label: "VISITORS TODAY", value: visitorsToday, icon: Shield, color: "bg-sky-50 text-sky-700 border-sky-100" },
-    { label: "ACTIVE STAFF", value: activeStaff, icon: Users, color: "bg-violet-50 text-violet-700 border-violet-100" },
+  // ── KPI card definitions ──────────────────────────────────────────────────
+  const kpiCards = [
+    { label: "TOTAL RESIDENTS", value: totalResidents,        icon: Users,         accent: "border-l-blue-500",   bg: "bg-blue-50",    text: "text-blue-700"   },
+    { label: "ACTIVE RESIDENTS", value: activeResidents,      icon: Users,         accent: "border-l-green-500",  bg: "bg-green-50",   text: "text-green-700"  },
+    { label: "TOTAL UNITS",      value: totalUnits,           icon: Home,          accent: "border-l-purple-500", bg: "bg-purple-50",  text: "text-purple-700" },
+    { label: "OCCUPIED UNITS",   value: occupied,             icon: Building,      accent: "border-l-teal-500",   bg: "bg-teal-50",    text: "text-teal-700",  sub: `${occupancyPct}% occupancy` },
+    { label: "OWNERS",           value: owners,               icon: Shield,        accent: "border-l-indigo-500", bg: "bg-indigo-50",  text: "text-indigo-700" },
+    { label: "TENANTS",          value: tenants,              icon: Users,         accent: "border-l-violet-500", bg: "bg-violet-50",  text: "text-violet-700" },
+    { label: "OPEN COMPLAINTS",  value: openComplaints,       icon: AlertCircle,   accent: "border-l-red-500",    bg: "bg-red-50",     text: "text-red-700"    },
+    { label: "OCCUPANCY RATE",   value: `${occupancyPct}%`,   icon: TrendingUp,    accent: "border-l-amber-500",  bg: "bg-amber-50",   text: "text-amber-700"  },
   ];
 
-  const kpiRow2 = [
-    { label: "MONTHLY REVENUE", value: formatCurrency(monthlyRevenue), icon: BadgeDollarSign, color: "bg-emerald-50 text-emerald-700 border-emerald-100" },
-    { label: "PENDING PAYMENTS", value: pendingPaymentsCount, icon: Clock, color: "bg-amber-50 text-amber-700 border-amber-100" },
-    { label: "OPEN COMPLAINTS", value: openComplaints, icon: AlertCircle, color: "bg-red-50 text-red-700 border-red-100" },
-    { label: "SOCIETIES", value: (stats as any)?.societies_count ?? (stats as any)?.societiesCount ?? (stats as any)?.societies ?? "—", icon: Building2, color: "bg-blue-50 text-blue-700 border-blue-100" },
-    { label: "BLOCKS", value: (stats as any)?.blocks_count ?? (stats as any)?.blocksCount ?? (stats as any)?.blocks ?? "—", icon: Building, color: "bg-indigo-50 text-indigo-700 border-indigo-100" },
+  const quickActions = [
+    { label: "Add Resident", to: "/residents",              icon: Users      },
+    { label: "View Units",   to: "/units",                  icon: Home       },
+    { label: "Complaints",   to: "/complaints",             icon: ClipboardList },
+    { label: "Notices",      to: "/notices",                icon: FileText   },
   ];
 
   return (
@@ -138,46 +153,27 @@ export function DashboardPage() {
         <div>
           <p className="text-sm text-gray-500">AMS / Dashboard</p>
           <h1 className="text-2xl font-bold text-gray-900">Operations Dashboard</h1>
-          <p className="mt-1 text-sm text-gray-500">Real-time overview across all modules and societies</p>
-        </div>
-        <div className="flex shrink-0 gap-2">
-          <button type="button" className="inline-flex h-9 items-center gap-2 rounded-md border border-gray-200 bg-white px-3 text-sm font-medium text-gray-700 hover:bg-gray-50">
-            <Download size={14} />Export
-          </button>
-          <button type="button" className="inline-flex h-9 items-center gap-2 rounded-md bg-blue-600 px-3 text-sm font-medium text-white hover:bg-blue-700">
-            <FileBarChart size={14} />Generate Report
-          </button>
+          <p className="mt-1 text-sm text-gray-500">
+            {society?.society_name ?? "All Societies"} — real-time resident &amp; occupancy overview
+          </p>
         </div>
       </div>
 
-      {/* KPI Row 1 */}
-      <div className="grid gap-3 sm:grid-cols-3 xl:grid-cols-5">
-        {kpiRow1.map((kpi) => (
-          <Card key={kpi.label} className={`border p-4 ${kpi.color}`}>
+      {/* KPI Grid */}
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        {kpiCards.map(kpi => (
+          <Card key={kpi.label} className={`border-l-4 p-4 ${kpi.accent} ${kpi.bg}`}>
             <div className="flex items-start justify-between">
-              <p className="text-xs font-semibold uppercase tracking-wide opacity-70">{kpi.label}</p>
-              <kpi.icon size={16} className="opacity-60" />
+              <p className={`text-xs font-semibold uppercase tracking-wide opacity-70 ${kpi.text}`}>{kpi.label}</p>
+              <kpi.icon size={16} className={`opacity-60 ${kpi.text}`} />
             </div>
-            {isLoading ? <Skeleton className="mt-3 h-8 w-20" /> : (
+            {isLoading ? (
+              <Skeleton className="mt-3 h-8 w-20" />
+            ) : (
               <div className="mt-3">
-                <p className="text-2xl font-bold">{String(kpi.value)}</p>
-                {kpi.subtext && <p className="mt-0.5 text-xs font-medium opacity-70">{kpi.subtext} occupancy</p>}
+                <p className={`text-2xl font-bold ${kpi.text}`}>{String(kpi.value)}</p>
+                {kpi.sub && <p className={`mt-0.5 text-xs font-medium opacity-70 ${kpi.text}`}>{kpi.sub}</p>}
               </div>
-            )}
-          </Card>
-        ))}
-      </div>
-
-      {/* KPI Row 2 */}
-      <div className="grid gap-3 sm:grid-cols-3 xl:grid-cols-5">
-        {kpiRow2.map((kpi) => (
-          <Card key={kpi.label} className={`border p-4 ${kpi.color}`}>
-            <div className="flex items-start justify-between">
-              <p className="text-xs font-semibold uppercase tracking-wide opacity-70">{kpi.label}</p>
-              <kpi.icon size={16} className="opacity-60" />
-            </div>
-            {isLoading ? <Skeleton className="mt-3 h-8 w-20" /> : (
-              <p className="mt-3 text-2xl font-bold">{String(kpi.value)}</p>
             )}
           </Card>
         ))}
@@ -186,46 +182,38 @@ export function DashboardPage() {
       {/* Charts Row 1 */}
       <div className="grid gap-4 xl:grid-cols-[1.6fr_1fr]">
         <Card className="p-5">
-          <h2 className="text-base font-semibold text-gray-900">Revenue vs Expenses</h2>
-          <p className="mt-1 text-sm text-gray-500">6-month financial trend</p>
+          <h2 className="text-base font-semibold text-gray-900">Residents by Block</h2>
+          <p className="mt-1 text-sm text-gray-500">Total registered residents per block</p>
           <div className="mt-4 h-64">
-            <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={REVENUE_DATA}>
-                <defs>
-                  <linearGradient id="revGrad" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#2563eb" stopOpacity={0.25} />
-                    <stop offset="95%" stopColor="#2563eb" stopOpacity={0} />
-                  </linearGradient>
-                  <linearGradient id="expGrad" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#ef4444" stopOpacity={0.25} />
-                    <stop offset="95%" stopColor="#ef4444" stopOpacity={0} />
-                  </linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                <XAxis dataKey="month" />
-                <YAxis tickFormatter={(v) => `${(v / 100000).toFixed(0)}L`} />
-                <Tooltip formatter={(v: number) => formatCurrency(v)} />
-                <Legend />
-                <Area type="monotone" dataKey="revenue" name="Revenue" stroke="#2563eb" fill="url(#revGrad)" strokeWidth={2} />
-                <Area type="monotone" dataKey="expenses" name="Expenses" stroke="#ef4444" fill="url(#expGrad)" strokeWidth={2} />
-              </AreaChart>
-            </ResponsiveContainer>
+            {isLoading ? <Skeleton className="h-full w-full" /> : (
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={residentsByBlock}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                  <XAxis dataKey="name" tick={{ fontSize: 12 }} />
+                  <YAxis allowDecimals={false} tick={{ fontSize: 12 }} />
+                  <Tooltip />
+                  <Bar dataKey="count" name="Residents" fill="#2563eb" radius={[4, 4, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            )}
           </div>
         </Card>
 
         <Card className="p-5">
-          <h2 className="text-base font-semibold text-gray-900">Complaint Status</h2>
-          <p className="mt-1 text-sm text-gray-500">Current distribution</p>
+          <h2 className="text-base font-semibold text-gray-900">Owner vs Tenant</h2>
+          <p className="mt-1 text-sm text-gray-500">Resident type distribution</p>
           <div className="mt-4 h-64">
-            <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
-                <Pie data={complaintPie} dataKey="value" nameKey="name" innerRadius={60} outerRadius={90} paddingAngle={3}>
-                  {complaintPie.map((entry) => <Cell key={entry.name} fill={entry.color} />)}
-                </Pie>
-                <Tooltip />
-                <Legend />
-              </PieChart>
-            </ResponsiveContainer>
+            {isLoading ? <Skeleton className="h-full w-full" /> : (
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie data={ownerTenantData} dataKey="value" nameKey="name" innerRadius={60} outerRadius={90} paddingAngle={4}>
+                    {ownerTenantData.map(entry => <Cell key={entry.name} fill={entry.color} />)}
+                  </Pie>
+                  <Tooltip />
+                  <Legend />
+                </PieChart>
+              </ResponsiveContainer>
+            )}
           </div>
         </Card>
       </div>
@@ -233,75 +221,124 @@ export function DashboardPage() {
       {/* Charts Row 2 */}
       <div className="grid gap-4 xl:grid-cols-[1.6fr_1fr]">
         <Card className="p-5">
-          <h2 className="text-base font-semibold text-gray-900">Payment Collection Trend</h2>
-          <p className="mt-1 text-sm text-gray-500">Monthly collections</p>
+          <h2 className="text-base font-semibold text-gray-900">Unit Occupancy by Block</h2>
+          <p className="mt-1 text-sm text-gray-500">Occupied vs vacant per block</p>
           <div className="mt-4 h-56">
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={COLLECTION_TREND}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                <XAxis dataKey="month" />
-                <YAxis tickFormatter={(v) => `${(v / 100000).toFixed(0)}L`} />
-                <Tooltip formatter={(v: number) => formatCurrency(v)} />
-                <Line type="monotone" dataKey="collected" name="Collected" stroke="#10b981" strokeWidth={2} dot={{ fill: "#10b981", r: 4 }} />
-              </LineChart>
-            </ResponsiveContainer>
+            {isLoading ? <Skeleton className="h-full w-full" /> : (
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={occupancyByBlock}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                  <XAxis dataKey="name" tick={{ fontSize: 12 }} />
+                  <YAxis allowDecimals={false} tick={{ fontSize: 12 }} />
+                  <Tooltip />
+                  <Legend />
+                  <Bar dataKey="occupied" name="Occupied" fill="#10b981" radius={[4, 4, 0, 0]} stackId="a" />
+                  <Bar dataKey="vacant"   name="Vacant"   fill="#e5e7eb" radius={[4, 4, 0, 0]} stackId="a" />
+                </BarChart>
+              </ResponsiveContainer>
+            )}
           </div>
         </Card>
 
         <Card className="p-5">
-          <h2 className="text-base font-semibold text-gray-900">Occupancy by Block</h2>
-          <p className="mt-1 text-sm text-gray-500">Top 5 blocks</p>
+          <h2 className="text-base font-semibold text-gray-900">Move-ins (Last 6 Months)</h2>
+          <p className="mt-1 text-sm text-gray-500">New residents by move-in month</p>
           <div className="mt-4 h-56">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={OCCUPANCY_BY_SOCIETY} layout="vertical">
-                <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" horizontal={false} />
-                <XAxis type="number" domain={[0, 100]} tickFormatter={(v) => `${v}%`} />
-                <YAxis type="category" dataKey="name" width={55} />
-                <Tooltip formatter={(v) => [`${v}%`, "Occupancy"]} />
-                <Bar dataKey="pct" name="Occupancy" fill="#2563eb" radius={[0, 4, 4, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
+            {isLoading ? <Skeleton className="h-full w-full" /> : (
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={moveInsByMonth}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                  <XAxis dataKey="month" tick={{ fontSize: 12 }} />
+                  <YAxis allowDecimals={false} tick={{ fontSize: 12 }} />
+                  <Tooltip />
+                  <Line type="monotone" dataKey="moveIns" name="Move-ins" stroke="#2563eb" strokeWidth={2} dot={{ fill: "#2563eb", r: 4 }} />
+                </LineChart>
+              </ResponsiveContainer>
+            )}
           </div>
         </Card>
       </div>
 
       {/* Bottom Row */}
-      <div className="grid gap-4 xl:grid-cols-2">
+      <div className="grid gap-4 xl:grid-cols-[1.6fr_1fr]">
+        {/* Recent Residents */}
         <Card className="p-5">
-          <h2 className="text-base font-semibold text-gray-900">Recent Activities</h2>
+          <div className="flex items-center justify-between">
+            <h2 className="text-base font-semibold text-gray-900">Recent Residents</h2>
+            <Link to="/residents" className="flex items-center gap-1 text-sm text-blue-600 hover:underline">
+              View all <ArrowRight size={14} />
+            </Link>
+          </div>
           <div className="mt-4 space-y-3">
-            {isLoading ? Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-12" />) : activities.slice(0, 5).map((a, i) => (
-              <div key={i} className="flex items-center gap-3 rounded-lg border border-gray-100 px-3 py-2.5">
-                <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-sm font-bold text-white ${a.color}`}>
-                  {String(a.label).slice(0, 2).toUpperCase()}
-                </div>
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-medium text-gray-900">{a.label}</p>
-                  <p className="text-xs text-gray-500">{a.meta}</p>
-                </div>
-              </div>
-            ))}
+            {isLoading
+              ? Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-12" />)
+              : recentResidents.length === 0
+                ? <p className="py-6 text-center text-sm text-gray-400">No residents data available</p>
+                : recentResidents.map((r: any) => {
+                    const initials = String(r.full_name ?? "?").slice(0, 2).toUpperCase();
+                    const typeColor = String(r.resident_type ?? "").toUpperCase() === "OWNER" ? "bg-blue-100 text-blue-700" : "bg-violet-100 text-violet-700";
+                    return (
+                      <div key={String(r.id)} className="flex items-center gap-3 rounded-lg border border-gray-100 px-3 py-2.5">
+                        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-blue-600 text-sm font-bold text-white">
+                          {initials}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate text-sm font-medium text-gray-900">{String(r.full_name ?? "—")}</p>
+                          <p className="text-xs text-gray-500">
+                            {[r.block_name, r.unit_number].filter(Boolean).join(" · ") || "No unit"} ·{" "}
+                            {r.move_in_date ? new Date(String(r.move_in_date)).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" }) : "—"}
+                          </p>
+                        </div>
+                        <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${typeColor}`}>
+                          {String(r.resident_type ?? "—")}
+                        </span>
+                      </div>
+                    );
+                  })
+            }
           </div>
         </Card>
 
-        <Card className="p-5">
-          <h2 className="text-base font-semibold text-gray-900">Top Defaulters</h2>
-          <p className="mt-1 text-sm text-gray-500">Residents with highest outstanding dues</p>
-          <div className="mt-4 space-y-3">
-            {TOP_DEFAULTERS.map((d, i) => (
-              <div key={d.unit} className="flex items-center gap-3 rounded-lg border border-gray-100 px-3 py-2.5">
-                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-red-100 text-sm font-bold text-red-700">
-                  {String(i + 1)}
+        {/* Quick Actions + Stats snapshot */}
+        <div className="space-y-4">
+          <Card className="p-5">
+            <h2 className="text-base font-semibold text-gray-900">Quick Actions</h2>
+            <div className="mt-4 grid grid-cols-2 gap-2">
+              {quickActions.map(a => (
+                <Link
+                  key={a.label}
+                  to={a.to}
+                  className="flex items-center gap-2 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2.5 text-sm font-medium text-gray-700 hover:bg-blue-50 hover:border-blue-200 hover:text-blue-700 transition-colors"
+                >
+                  <a.icon size={15} />
+                  {a.label}
+                </Link>
+              ))}
+            </div>
+          </Card>
+
+          <Card className="p-5">
+            <h2 className="text-base font-semibold text-gray-900">Society Snapshot</h2>
+            <div className="mt-3 space-y-2">
+              {[
+                { label: "Visitors Today", value: visitorsToday,  icon: Shield          },
+                { label: "Active Staff",   value: activeStaff,    icon: Users           },
+                { label: "Blocks",         value: (stats as any)?.blocks_count ?? (stats as any)?.blocks ?? "—", icon: Building2 },
+                { label: "Societies",      value: (stats as any)?.societies_count ?? (stats as any)?.societies ?? "—", icon: Building2 },
+              ].map(item => (
+                <div key={item.label} className="flex items-center justify-between rounded-md px-2 py-1.5 hover:bg-gray-50">
+                  <div className="flex items-center gap-2 text-sm text-gray-600">
+                    <item.icon size={14} className="text-gray-400" />
+                    {item.label}
+                  </div>
+                  <span className="text-sm font-semibold text-gray-900">
+                    {isLoading ? "…" : String(item.value)}
+                  </span>
                 </div>
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-medium text-gray-900">{d.name}</p>
-                  <p className="text-xs text-gray-500">{d.unit}</p>
-                </div>
-                <span className="text-sm font-bold text-red-600">{formatCurrency(d.amount)}</span>
-              </div>
-            ))}
-          </div>
-        </Card>
+              ))}
+            </div>
+          </Card>
+        </div>
       </div>
     </div>
   );

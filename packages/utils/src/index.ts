@@ -1,12 +1,29 @@
-import axios from "axios";
+
+import axios, {
+  AxiosError,
+  InternalAxiosRequestConfig,
+} from "axios";
+
 import { clsx, type ClassValue } from "clsx";
+
 import { twMerge } from "tailwind-merge";
+
+/* ====================================================== */
+/* ENV */
+/* ====================================================== */
 
 const env = (
   import.meta as ImportMeta & {
-    env?: Record<string, string>;
+    env?: Record<
+      string,
+      string
+    >;
   }
 ).env;
+
+/* ====================================================== */
+/* TOKEN KEYS */
+/* ====================================================== */
 
 export const ACCESS_TOKEN_KEY =
   env?.VITE_AUTH_TOKEN_KEY ??
@@ -22,194 +39,61 @@ const LEGACY_ACCESS_TOKEN_KEY =
 const LEGACY_REFRESH_TOKEN_KEY =
   "ams.refreshToken";
 
+/* ====================================================== */
+/* API URL */
+/* ====================================================== */
+
 const API_BASE_URL =
   env?.VITE_API_BASE_URL ??
   "http://localhost:4444/v1";
 
+/* ====================================================== */
+/* CLASSNAME */
+/* ====================================================== */
+
 export function cn(
   ...inputs: ClassValue[]
 ): string {
-  return twMerge(clsx(inputs));
+
+  return twMerge(
+    clsx(inputs)
+  );
 }
 
-export const http = axios.create({
-  baseURL: API_BASE_URL,
+/* ====================================================== */
+/* TOKEN HELPERS */
+/* ====================================================== */
 
-  headers: {
-    "Content-Type":
-      "application/json",
-  },
-});
+export function getAccessToken():
+  | string
+  | null {
 
-http.interceptors.request.use(
-  (config) => {
-
-    const token =
-      localStorage.getItem(
-        ACCESS_TOKEN_KEY
-      ) ??
-      localStorage.getItem(
-        LEGACY_ACCESS_TOKEN_KEY
-      );
-
-    if (token) {
-      config.headers.Authorization =
-        `Bearer ${token}`;
-    }
-
-    return config;
-  }
-);
-
-let isRefreshing = false;
-
-let failedQueue: Array<{
-  resolve: (
-    token: string
-  ) => void;
-
-  reject: (
-    err: unknown
-  ) => void;
-}> = [];
-
-function processQueue(
-  error: unknown,
-  token?: string
-) {
-
-  for (const prom of failedQueue) {
-
-    if (token) {
-      prom.resolve(token);
-    } else {
-      prom.reject(error);
-    }
-  }
-
-  failedQueue = [];
+  return (
+    localStorage.getItem(
+      ACCESS_TOKEN_KEY
+    ) ??
+    localStorage.getItem(
+      LEGACY_ACCESS_TOKEN_KEY
+    ) ??
+    localStorage.getItem(
+      "token"
+    )
+  );
 }
 
-http.interceptors.response.use(
+export function getRefreshToken():
+  | string
+  | null {
 
-  (response) => response,
-
-  async (error) => {
-
-    const original =
-      error.config as typeof error.config & {
-        _retry?: boolean;
-      };
-
-    if (
-      error.response?.status !== 401 ||
-      original._retry
-    ) {
-      return Promise.reject(error);
-    }
-
-    if (isRefreshing) {
-
-      return new Promise(
-        (resolve, reject) => {
-
-          failedQueue.push({
-            resolve,
-            reject,
-          });
-        }
-      ).then((token) => {
-
-        original.headers.Authorization =
-          `Bearer ${token}`;
-
-        return http(original);
-      });
-    }
-
-    original._retry = true;
-
-    isRefreshing = true;
-
-    const refreshToken =
-      localStorage.getItem(
-        REFRESH_TOKEN_KEY
-      ) ??
-      localStorage.getItem(
-        LEGACY_REFRESH_TOKEN_KEY
-      );
-
-    if (!refreshToken) {
-
-      clearTokens();
-
-      isRefreshing = false;
-
-      if (
-        typeof window !==
-        "undefined"
-      ) {
-        window.location.href =
-          "/login";
-      }
-
-      return Promise.reject(error);
-    }
-
-    try {
-
-      const { data } =
-        await axios.post<{
-          access_token: string;
-
-          refresh_token: string;
-        }>(
-          `${API_BASE_URL}/auth/refresh`,
-          {
-            refresh_token:
-              refreshToken,
-          }
-        );
-
-      setTokens(
-        data.access_token,
-        data.refresh_token
-      );
-
-      processQueue(
-        null,
-        data.access_token
-      );
-
-      original.headers.Authorization =
-        `Bearer ${data.access_token}`;
-
-      return http(original);
-
-    } catch (refreshError) {
-
-      processQueue(refreshError);
-
-      clearTokens();
-
-      if (
-        typeof window !==
-        "undefined"
-      ) {
-        window.location.href =
-          "/login";
-      }
-
-      return Promise.reject(
-        refreshError
-      );
-
-    } finally {
-
-      isRefreshing = false;
-    }
-  }
-);
+  return (
+    localStorage.getItem(
+      REFRESH_TOKEN_KEY
+    ) ??
+    localStorage.getItem(
+      LEGACY_REFRESH_TOKEN_KEY
+    )
+  );
+}
 
 export function setTokens(
   accessToken: string,
@@ -224,6 +108,13 @@ export function setTokens(
   localStorage.setItem(
     REFRESH_TOKEN_KEY,
     refreshToken
+  );
+
+  /* legacy */
+
+  localStorage.setItem(
+    "token",
+    accessToken
   );
 
   localStorage.removeItem(
@@ -252,21 +143,330 @@ export function clearTokens(): void {
   localStorage.removeItem(
     LEGACY_REFRESH_TOKEN_KEY
   );
+
+  localStorage.removeItem(
+    "token"
+  );
 }
 
-export function formatCurrency(
-  value?: number
-): string {
+/* ====================================================== */
+/* AXIOS */
+/* ====================================================== */
 
-  return new Intl.NumberFormat(
-    "en-IN",
-    {
-      style: "currency",
-      currency: "INR",
-      maximumFractionDigits: 0,
+export const http =
+  axios.create({
+
+    baseURL:
+      API_BASE_URL,
+
+    timeout: 30000,
+
+    withCredentials:
+      false,
+
+    headers: {
+      "Content-Type":
+        "application/json",
+    },
+  });
+
+/* ====================================================== */
+/* REQUEST */
+/* ====================================================== */
+
+http.interceptors.request.use(
+
+  (
+    config:
+      InternalAxiosRequestConfig
+  ) => {
+
+    const token =
+      getAccessToken();
+
+    if (
+      token &&
+      config.headers
+    ) {
+
+      config.headers.Authorization =
+        `Bearer ${token}`;
     }
-  ).format(value ?? 0);
+
+    return config;
+  },
+
+  (error) =>
+    Promise.reject(error)
+);
+
+/* ====================================================== */
+/* REFRESH STATE */
+/* ====================================================== */
+
+let isRefreshing =
+  false;
+
+let failedQueue: Array<{
+  resolve: (
+    token: string
+  ) => void;
+
+  reject: (
+    error: unknown
+  ) => void;
+}> = [];
+
+/* ====================================================== */
+/* QUEUE */
+/* ====================================================== */
+
+function processQueue(
+  error: unknown,
+  token?: string
+) {
+
+  failedQueue.forEach(
+    (promise) => {
+
+      if (error) {
+
+        promise.reject(
+          error
+        );
+
+      } else {
+
+        promise.resolve(
+          token || ""
+        );
+      }
+    }
+  );
+
+  failedQueue = [];
 }
+
+/* ====================================================== */
+/* RESPONSE */
+/* ====================================================== */
+
+http.interceptors.response.use(
+
+  (response) => response,
+
+  async (
+    error: AxiosError
+  ) => {
+
+    const originalRequest =
+      error.config as
+        | (InternalAxiosRequestConfig & {
+            _retry?: boolean;
+          })
+        | undefined;
+
+    const status =
+      error.response
+        ?.status;
+
+    console.error(
+      "API ERROR:",
+      status,
+      error.response?.data
+    );
+
+    /* skip invalid */
+
+    if (
+      !originalRequest
+    ) {
+
+      return Promise.reject(
+        error
+      );
+    }
+
+    /* ignore auth endpoints */
+
+    const isAuthRequest =
+      originalRequest.url?.includes(
+        "/auth/login"
+      ) ||
+      originalRequest.url?.includes(
+        "/auth/refresh"
+      );
+
+    if (isAuthRequest) {
+
+      return Promise.reject(
+        error
+      );
+    }
+
+    /* ignore non-401 */
+
+    if (
+      status !== 401
+    ) {
+
+      return Promise.reject(
+        error
+      );
+    }
+
+    /* already retried */
+
+    if (
+      originalRequest._retry
+    ) {
+
+      clearTokens();
+
+      if (
+        typeof window !==
+        "undefined"
+      ) {
+
+        window.location.href =
+          "/login";
+      }
+
+      return Promise.reject(
+        error
+      );
+    }
+
+    /* queue */
+
+    if (isRefreshing) {
+
+      return new Promise(
+        (
+          resolve,
+          reject
+        ) => {
+
+          failedQueue.push({
+            resolve,
+            reject,
+          });
+        }
+      ).then(
+        (token) => {
+
+          if (
+            originalRequest.headers
+          ) {
+
+            originalRequest.headers.Authorization =
+              `Bearer ${token}`;
+          }
+
+          return http(
+            originalRequest
+          );
+        }
+      );
+    }
+
+    originalRequest._retry =
+      true;
+
+    isRefreshing = true;
+
+    const refreshToken =
+      getRefreshToken();
+
+    if (
+      !refreshToken
+    ) {
+
+      clearTokens();
+
+      isRefreshing =
+        false;
+
+      return Promise.reject(
+        error
+      );
+    }
+
+    try {
+
+      const response =
+        await axios.post<{
+          access_token: string;
+          refresh_token: string;
+        }>(
+          `${API_BASE_URL}/auth/refresh`,
+          {
+            refresh_token:
+              refreshToken,
+          }
+        );
+
+      const {
+        access_token,
+        refresh_token,
+      } = response.data;
+
+      setTokens(
+        access_token,
+        refresh_token
+      );
+
+      processQueue(
+        null,
+        access_token
+      );
+
+      if (
+        originalRequest.headers
+      ) {
+
+        originalRequest.headers.Authorization =
+          `Bearer ${access_token}`;
+      }
+
+      return http(
+        originalRequest
+      );
+
+    } catch (
+      refreshError
+    ) {
+
+      processQueue(
+        refreshError
+      );
+
+      clearTokens();
+
+      if (
+        typeof window !==
+        "undefined"
+      ) {
+
+        window.location.href =
+          "/login";
+      }
+
+      return Promise.reject(
+        refreshError
+      );
+
+    } finally {
+
+      isRefreshing =
+        false;
+    }
+  }
+);
+
+/* ====================================================== */
+/* NORMALIZERS */
+/* ====================================================== */
 
 const DOMAIN_KEYS = [
 
@@ -291,12 +491,15 @@ export function normalizeList<T>(
   response: unknown
 ): T[] {
 
-  if (!response) {
+  if (!response)
     return [];
-  }
 
-  // direct array
-  if (Array.isArray(response)) {
+  if (
+    Array.isArray(
+      response
+    )
+  ) {
+
     return response as T[];
   }
 
@@ -304,6 +507,7 @@ export function normalizeList<T>(
     typeof response !==
     "object"
   ) {
+
     return [];
   }
 
@@ -313,21 +517,24 @@ export function normalizeList<T>(
       unknown
     >;
 
-  // axios response
   if (
-    Array.isArray(record.data)
+    Array.isArray(
+      record.data
+    )
   ) {
+
     return record.data as T[];
   }
 
-  // items wrapper
   if (
-    Array.isArray(record.items)
+    Array.isArray(
+      record.items
+    )
   ) {
+
     return record.items as T[];
   }
 
-  // domain arrays
   for (const key of DOMAIN_KEYS) {
 
     if (
@@ -342,55 +549,6 @@ export function normalizeList<T>(
     }
   }
 
-  // nested wrappers
-  if (
-    record.data &&
-    typeof record.data ===
-      "object"
-  ) {
-
-    const nested =
-      record.data as Record<
-        string,
-        unknown
-      >;
-
-    // nested data
-    if (
-      Array.isArray(
-        nested.data
-      )
-    ) {
-
-      return nested.data as T[];
-    }
-
-    // nested items
-    if (
-      Array.isArray(
-        nested.items
-      )
-    ) {
-
-      return nested.items as T[];
-    }
-
-    // nested domain arrays
-    for (const key of DOMAIN_KEYS) {
-
-      if (
-        Array.isArray(
-          nested[key]
-        )
-      ) {
-
-        return nested[
-          key
-        ] as T[];
-      }
-    }
-  }
-
   return [];
 }
 
@@ -398,19 +556,16 @@ export function normalizeTotal(
   response: unknown
 ): number {
 
-  if (!response) {
+  if (!response)
     return 0;
-  }
-
-  if (Array.isArray(response)) {
-    return response.length;
-  }
 
   if (
-    typeof response !==
-    "object"
+    Array.isArray(
+      response
+    )
   ) {
-    return 0;
+
+    return response.length;
   }
 
   const record =
@@ -419,58 +574,37 @@ export function normalizeTotal(
       unknown
     >;
 
-  const meta =
-    record.meta as
-      | Record<
-          string,
-          unknown
-        >
-      | undefined;
+  return Number(
 
-  const pagination =
-    (record.pagination ??
-      meta?.pagination) as
-      | Record<
-          string,
-          unknown
-        >
-      | undefined;
+    record.total ??
 
-  const nestedData =
-    record.data as
-      | Record<
-          string,
-          unknown
-        >
-      | undefined;
-
-  const nestedPagination =
-    (nestedData?.pagination ??
       (
-        nestedData?.meta as
+        record.pagination as
           | Record<
               string,
               unknown
             >
           | undefined
-      )?.pagination) as
-      | Record<
-          string,
-          unknown
-        >
-      | undefined;
+      )?.total ??
 
-  return Number(
-
-    record.total ??
-    record.count ??
-    pagination?.total ??
-    nestedPagination?.total ??
-    normalizeList(response)
-      .length ??
-    0
+      normalizeList(
+        response
+      ).length
   );
 }
+
+export function extractData<T>(
+  response: unknown
+): T[] {
+
+  return normalizeList<T>(
+    response
+  );
+}
+
+/* ====================================================== */
+/* LABELS */
+/* ====================================================== */
 
 export function getRecordLabel(
   record: Record<
@@ -482,14 +616,43 @@ export function getRecordLabel(
   return String(
 
     record.full_name ??
-    record.name ??
-    record.title ??
-    record.asset_name ??
-    record.visitor_name ??
-    record.invoice_number ??
-    record.unit_number ??
-    record.block_name ??
-    record.id ??
-    "Record"
+
+      record.name ??
+
+      record.title ??
+
+      record.asset_name ??
+
+      record.visitor_name ??
+
+      record.invoice_number ??
+
+      record.unit_number ??
+
+      record.block_name ??
+
+      record.id ??
+
+      "Record"
+  );
+}
+
+/* ====================================================== */
+/* FORMATTERS */
+/* ====================================================== */
+
+export function formatCurrency(
+  value?: number
+): string {
+
+  return new Intl.NumberFormat(
+    "en-IN",
+    {
+      style: "currency",
+      currency: "INR",
+      maximumFractionDigits: 0,
+    }
+  ).format(
+    value ?? 0
   );
 }

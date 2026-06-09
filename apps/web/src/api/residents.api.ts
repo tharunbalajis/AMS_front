@@ -1,3 +1,4 @@
+
 import { http } from "@ams/utils";
 
 export interface ApiResponse<T> {
@@ -28,7 +29,7 @@ export interface Resident {
   full_name: string;
   email: string | null;
   mobile_primary: string;
-  resident_type: 'OWNER' | 'TENANT';
+  resident_type: "OWNER" | "TENANT";
   move_in_date: string | null;
   move_out_date: string | null;
   is_active: boolean;
@@ -47,12 +48,15 @@ export interface Resident {
 export interface Unit {
   unit_id: number;
   unit_number: string;
-  floor: number;
+  floor_number?: number;
   unit_type: string | null;
   block_id: number;
   block_name: string | null;
   society_id: number;
-  occupancy_status: 'VACANT' | 'OWNER_OCCUPIED' | 'RENTED';
+  occupancy_status:
+    | "VACANT"
+    | "OWNER_OCCUPIED"
+    | "RENTED";
   parking_slots: number;
   owner_id: string | null;
   owner_name: string | null;
@@ -69,110 +73,653 @@ export interface Block {
   description: string | null;
 }
 
+/* -------------------------------------------------- */
+/* SAFE RESPONSE HELPERS */
+/* -------------------------------------------------- */
+
+function unwrapArray<T>(
+  body: unknown
+): T[] {
+
+  if (!body) return [];
+
+  if (Array.isArray(body)) {
+    return body as T[];
+  }
+
+  const r =
+    body as Record<string, unknown>;
+
+  if (Array.isArray(r.data)) {
+    return r.data as T[];
+  }
+
+  if (Array.isArray(r.rows)) {
+    return r.rows as T[];
+  }
+
+  if (Array.isArray(r.items)) {
+    return r.items as T[];
+  }
+
+  return [];
+}
+
+function unwrapPagination(
+  body: any
+): Pagination {
+
+  return {
+    page:
+      body?.pagination?.page || 1,
+
+    page_size:
+      body?.pagination?.page_size || 100,
+
+    total:
+      body?.pagination?.total || 0,
+  };
+}
+
+function unwrapResponse<T>(
+  body: any
+): {
+  data: T[];
+  pagination: Pagination;
+} {
+
+  return {
+    data:
+      unwrapArray<T>(body),
+
+    pagination:
+      unwrapPagination(body),
+  };
+}
+
+const extractData = <T>(
+  response: any
+): T => {
+
+  const body = response?.data;
+
+  if (!body) {
+    return [] as unknown as T;
+  }
+
+  if (Array.isArray(body)) {
+    return body as unknown as T;
+  }
+
+  if (Array.isArray(body.data)) {
+    return body.data as unknown as T;
+  }
+
+  if (body.data !== undefined) {
+    return body.data as unknown as T;
+  }
+
+  return body as unknown as T;
+};
+
+/* -------------------------------------------------- */
+/* API */
+/* -------------------------------------------------- */
+
 export const residentsApi = {
-  getAll: (params?: Record<string, unknown>) =>
-    http.get<ApiResponse<Resident[]>>("/residents", { params }).then(r => r.data),
 
-  getById: (id: string) =>
-    http.get<ApiResponse<Resident>>(`/residents/${id}`).then(r => r.data),
+  /* -------------------------------------------------- */
+  /* RESIDENTS */
+  /* -------------------------------------------------- */
 
-  create: (data: Record<string, unknown>) =>
-    http.post<ApiResponse<Record<string, unknown>>>("/residents", data).then(r => r.data),
+  getAll: async (
+    params?: Record<string, unknown>
+  ) => {
 
-  update: (id: string, data: Record<string, unknown>) =>
-    http.put<ApiResponse<Record<string, unknown>>>(`/residents/${id}`, data).then(r => r.data),
+    const response =
+      await http.get(
+        "/residents",
+        { params }
+      );
 
-  remove: (id: string) =>
-    http.delete<ApiResponse<Record<string, unknown>>>(`/residents/${id}`).then(r => r.data),
+    console.log(
+      "RESIDENT RAW RESPONSE",
+      response.data
+    );
 
-  getUnits: (params?: { society_id?: number; block_id?: number; search?: string; page?: number; page_size?: number; unit_type?: string; occupancy_status?: string }) =>
-    http.get<ApiResponse<Unit[]>>("/units", { params }).then(r => r.data),
-
-  getBlocks: (params?: { society_id?: number }) =>
-    http.get<ApiResponse<Block[]>>("/blocks", { params }).then(r => r.data),
-
-  exportCsv: async (societyId?: number) => {
-    const response = await http.get("/residents/export", {
-      params: societyId ? { society_id: societyId } : {},
-      responseType: "blob",
-    });
-    const url = URL.createObjectURL(response.data as Blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `residents_${new Date().toISOString().slice(0, 10)}.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
+    return unwrapResponse<Resident>(
+      response.data
+    );
   },
 
-  importPreview: (rows: Record<string, unknown>[]) =>
-    http.post<ApiResponse<{ total: number; valid: Record<string, unknown>[]; invalid: Record<string, unknown>[] }>>(
-      "/residents/import", { rows }
-    ).then(r => r.data),
+  getById: async (
+    id: string
+  ) => {
 
-  importConfirm: (rows: Record<string, unknown>[]) =>
-    http.post<ApiResponse<{ inserted: number; message: string }>>("/residents/import/confirm", { rows }).then(r => r.data),
+    const response =
+      await http.get(
+        `/residents/${id}`
+      );
 
-  getTimeline: (id: string) =>
-    http.get<ApiResponse<{ resident: Record<string, unknown>; events: Record<string, unknown>[] }>>(`/residents/${id}/timeline`).then(r => r.data),
+    return extractData<Resident>(
+      response
+    );
+  },
 
-  getVehicles: (params?: Record<string, unknown>) =>
-    http.get<ApiResponse<Record<string, unknown>[]>>('/vehicles', { params }).then(r => r.data),
+  create: async (
+    data: Record<string, unknown>
+  ) => {
 
-  addVehicle: (data: Record<string, unknown>) =>
-    http.post<ApiResponse<Record<string, unknown>>>(`/residents/${data.resident_id}/vehicles`, data).then(r => r.data),
+    const response =
+      await http.post(
+        "/residents",
+        data
+      );
 
-  getPets: (params?: Record<string, unknown>) =>
-    http.get<ApiResponse<Record<string, unknown>[]>>('/pets', { params }).then(r => r.data),
+    return extractData(response);
+  },
 
-  addPet: (data: Record<string, unknown>) =>
-    http.post<ApiResponse<Record<string, unknown>>>(`/residents/${data.resident_id}/pets`, data).then(r => r.data),
+  update: async (
+    id: string,
+    data: Record<string, unknown>
+  ) => {
 
-  getLeases: (params?: Record<string, unknown>) =>
-    http.get<ApiResponse<Record<string, unknown>[]>>("/residents/leases", { params }).then(r => r.data),
+    const response =
+      await http.put(
+        `/residents/${id}`,
+        data
+      );
 
-  createLease: (data: Record<string, unknown>) =>
-    http.post<ApiResponse<Record<string, unknown>>>("/residents/leases", data).then(r => r.data),
+    return extractData(response);
+  },
 
-  updateLease: (id: string, data: Record<string, unknown>) =>
-    http.put<ApiResponse<Record<string, unknown>>>(`/residents/leases/${id}`, data).then(r => r.data),
+  remove: async (
+    id: string
+  ) => {
 
-  createBlock: (data: Record<string, unknown>) =>
-    http.post<ApiResponse<Block>>('/blocks', data).then(r => r.data),
+    const response =
+      await http.delete(
+        `/residents/${id}`
+      );
 
-  updateBlock: (id: number, data: Record<string, unknown>) =>
-    http.put<ApiResponse<Block>>(`/blocks/${id}`, data).then(r => r.data),
+    return extractData(response);
+  },
 
-  createUnit: (data: Record<string, unknown>) =>
-    http.post<ApiResponse<Unit>>('/units', data).then(r => r.data),
+  /* -------------------------------------------------- */
+  /* UNITS */
+  /* -------------------------------------------------- */
 
-  getParkingSlots: (unitId: number, societyId?: number) =>
-    http.get<ApiResponse<Unit>>(`/units/${unitId}`, { params: societyId ? { society_id: societyId } : {} }).then(r => r.data),
-
-  getInactiveOwners: (params?: { society_id?: number; block_id?: number }) =>
-    http.get<ApiResponse<InactiveOwner[]>>('/residents/inactive-owners', { params }).then(r => r.data),
-
-  createUnitWithOwner: async (unitData: Record<string, unknown>, ownerData: Record<string, unknown> | null) => {
-    const unit = await residentsApi.createUnit(unitData);
-    const unitId = (unit as any)?.data?.unit_id ?? (unit as any)?.unit_id;
-    if (ownerData && unitId) {
-      await residentsApi.create({ ...ownerData, unit_id: unitId });
+  getUnits: async (
+    params?: {
+      society_id?: number;
+      block_id?: number;
+      search?: string;
+      page?: number;
+      page_size?: number;
+      unit_type?: string;
+      occupancy_status?: string;
     }
+  ) => {
+
+    const response =
+      await http.get(
+        "/units",
+        { params }
+      );
+
+    console.log(
+      "UNITS API RESPONSE",
+      response.data
+    );
+
+    return unwrapResponse<Unit>(
+      response.data
+    );
+  },
+
+  createUnit: async (
+    data: Record<string, unknown>
+  ) => {
+
+    const response =
+      await http.post(
+        "/units",
+        data
+      );
+
+    return extractData<Unit>(
+      response
+    );
+  },
+
+  getParkingSlots: async (
+    unitId: number,
+    societyId?: number
+  ) => {
+
+    const response =
+      await http.get(
+        `/units/${unitId}`,
+        {
+          params:
+            societyId
+              ? {
+                  society_id:
+                    societyId
+                }
+              : {},
+        }
+      );
+
+    return extractData<Unit>(
+      response
+    );
+  },
+
+  /* -------------------------------------------------- */
+  /* BLOCKS */
+  /* -------------------------------------------------- */
+
+  getBlocks: async (
+    params?: {
+      society_id?: number;
+    }
+  ) => {
+
+    const response =
+      await http.get(
+        "/blocks",
+        { params }
+      );
+
+    console.log(
+      "BLOCKS API RESPONSE",
+      response.data
+    );
+
+    return unwrapArray<Block>(
+      response.data
+    );
+  },
+
+  createBlock: async (
+    data: Record<string, unknown>
+  ) => {
+
+    const response =
+      await http.post(
+        "/blocks",
+        data
+      );
+
+    return extractData<Block>(
+      response
+    );
+  },
+
+  updateBlock: async (
+    id: number,
+    data: Record<string, unknown>
+  ) => {
+
+    const response =
+      await http.put(
+        `/blocks/${id}`,
+        data
+      );
+
+    return extractData<Block>(
+      response
+    );
+  },
+
+  /* -------------------------------------------------- */
+  /* VEHICLES */
+  /* -------------------------------------------------- */
+
+  getVehicles: async (
+    params?: Record<string, unknown>
+  ) => {
+
+    const response =
+      await http.get(
+        "/vehicles",
+        { params }
+      );
+
+    console.log(
+      "VEHICLES API RESPONSE",
+      response.data
+    );
+
+    return unwrapArray<any>(
+      response.data
+    );
+  },
+
+  addVehicle: async (
+    data: Record<string, unknown>
+  ) => {
+
+    const response =
+      await http.post(
+        `/residents/${data.resident_id}/vehicles`,
+        data
+      );
+
+    return extractData(response);
+  },
+
+  /* -------------------------------------------------- */
+  /* PETS */
+  /* -------------------------------------------------- */
+
+  getPets: async (
+    params?: Record<string, unknown>
+  ) => {
+
+    const response =
+      await http.get(
+        "/pets",
+        { params }
+      );
+
+    console.log(
+      "PETS API RESPONSE",
+      response.data
+    );
+
+    return unwrapArray<any>(
+      response.data
+    );
+  },
+
+  addPet: async (
+    data: Record<string, unknown>
+  ) => {
+
+    const response =
+      await http.post(
+        `/residents/${data.resident_id}/pets`,
+        data
+      );
+
+    return extractData(response);
+  },
+
+  /* -------------------------------------------------- */
+  /* LEASES */
+  /* -------------------------------------------------- */
+
+  getLeases: async (
+    params?: Record<string, unknown>
+  ) => {
+
+    const response =
+      await http.get(
+        "/residents/leases",
+        { params }
+      );
+
+    console.log(
+      "LEASES API RESPONSE",
+      response.data
+    );
+
+    return unwrapArray<any>(
+      response.data
+    );
+  },
+
+  createLease: async (
+    data: Record<string, unknown>
+  ) => {
+
+    const response =
+      await http.post(
+        "/residents/leases",
+        data
+      );
+
+    return extractData(response);
+  },
+
+  updateLease: async (
+    id: string,
+    data: Record<string, unknown>
+  ) => {
+
+    const response =
+      await http.put(
+        `/residents/leases/${id}`,
+        data
+      );
+
+    return extractData(response);
+  },
+
+  /* -------------------------------------------------- */
+  /* QR */
+  /* -------------------------------------------------- */
+
+  getResidentQR: async (
+    id: string
+  ) => {
+
+    const response =
+      await http.get(
+        `/residents/${id}/qr`
+      );
+
+    return extractData(response);
+  },
+
+  /* -------------------------------------------------- */
+  /* MOVE OUT */
+  /* -------------------------------------------------- */
+
+  moveOut: async (
+    id: string,
+    data: Record<string, unknown>
+  ) => {
+
+    const response =
+      await http.put(
+        `/residents/${id}/move-out`,
+        data
+      );
+
+    return extractData(response);
+  },
+
+  endLeaseAndMoveOut: async (
+    residentId: string,
+    leaseId: string,
+    moveOutDate: string
+  ) => {
+
+    await residentsApi.updateLease(
+      leaseId,
+      {
+        status: "TERMINATED",
+      }
+    );
+
+    return residentsApi.moveOut(
+      residentId,
+      {
+        move_out_date:
+          moveOutDate,
+      }
+    );
+  },
+
+  /* -------------------------------------------------- */
+  /* INACTIVE OWNERS */
+  /* -------------------------------------------------- */
+
+  getInactiveOwners: async (
+    params?: {
+      society_id?: number;
+      block_id?: number;
+    }
+  ) => {
+
+    const response =
+      await http.get(
+        "/residents/inactive-owners",
+        { params }
+      );
+
+    console.log(
+      "OWNERS API RESPONSE",
+      response.data
+    );
+
+    return unwrapArray<InactiveOwner>(
+      response.data
+    );
+  },
+
+  /* -------------------------------------------------- */
+  /* CREATE UNIT + OWNER */
+  /* -------------------------------------------------- */
+
+  createUnitWithOwner: async (
+    unitData: Record<string, unknown>,
+    ownerData:
+      | Record<string, unknown>
+      | null
+  ) => {
+
+    const unit =
+      await residentsApi.createUnit(
+        unitData
+      );
+
+    const unitId =
+      (unit as any)?.unit_id;
+
+    if (
+      ownerData &&
+      unitId
+    ) {
+
+      await residentsApi.create({
+        ...ownerData,
+        unit_id: unitId,
+      });
+    }
+
     return unit;
   },
 
-  endLeaseAndMoveOut: async (residentId: string, leaseId: string, moveOutDate: string) => {
-    await residentsApi.updateLease(leaseId, { status: 'TERMINATED' });
-    return residentsApi.moveOut(residentId, { move_out_date: moveOutDate });
+  /* -------------------------------------------------- */
+  /* CSV EXPORT */
+  /* -------------------------------------------------- */
+
+  exportCsv: async (
+    societyId?: number
+  ) => {
+
+    const response =
+      await http.get(
+        "/residents/export",
+        {
+          params:
+            societyId
+              ? {
+                  society_id:
+                    societyId
+                }
+              : {},
+
+          responseType:
+            "blob",
+        }
+      );
+
+    const url =
+      URL.createObjectURL(
+        response.data as Blob
+      );
+
+    const a =
+      document.createElement("a");
+
+    a.href = url;
+
+    a.download =
+      `residents_${new Date()
+        .toISOString()
+        .slice(0, 10)}.csv`;
+
+    a.click();
+
+    URL.revokeObjectURL(url);
   },
 
-  moveOut: (id: string, data: Record<string, unknown>) =>
-    http.put<ApiResponse<Record<string, unknown>>>(`/residents/${id}/move-out`, data).then(r => r.data),
+  /* -------------------------------------------------- */
+  /* IMPORT */
+  /* -------------------------------------------------- */
 
-  getResidentQR: (id: string) =>
-    http.get<ApiResponse<Record<string, unknown>>>(`/residents/${id}/qr`).then(r => r.data),
+  importPreview: async (
+    rows: Record<string, unknown>[]
+  ) => {
 
-  importPreviewWithSociety: (rows: Record<string, unknown>[], societyId?: number) =>
-    http.post<ApiResponse<{ total: number; valid: Record<string, unknown>[]; invalid: Record<string, unknown>[] }>>(
-      '/residents/import', { rows, society_id: societyId }
-    ).then(r => r.data),
+    const response =
+      await http.post(
+        "/residents/import",
+        { rows }
+      );
+
+    return extractData(response);
+  },
+
+  importPreviewWithSociety: async (
+    rows: Record<string, unknown>[],
+    societyId?: number
+  ) => {
+
+    const response =
+      await http.post(
+        "/residents/import",
+        {
+          rows,
+          society_id:
+            societyId,
+        }
+      );
+
+    return extractData(response);
+  },
+
+  importConfirm: async (
+    rows: Record<string, unknown>[]
+  ) => {
+
+    const response =
+      await http.post(
+        "/residents/import/confirm",
+        { rows }
+      );
+
+    return extractData(response);
+  },
+
+  /* -------------------------------------------------- */
+  /* TIMELINE */
+  /* -------------------------------------------------- */
+
+  getTimeline: async (
+    id: string
+  ) => {
+
+    const response =
+      await http.get(
+        `/residents/${id}/timeline`
+      );
+
+    return extractData(response);
+  },
 };

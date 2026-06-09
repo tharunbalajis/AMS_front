@@ -44,7 +44,7 @@ export default function ResidentWizard({ societyId, onClose }: { societyId: numb
     queryKey: ["units", societyId],
     queryFn: async () => {
       const res = await residentsApi.getUnits({ society_id: societyId, page: 1, page_size: 500 });
-      return (res as any)?.data?.data ?? (res as any)?.data ?? [];
+      return (res as any)?.data ?? [];
     },
     enabled: mode === "OWNER" || mode === null,
   });
@@ -63,8 +63,8 @@ export default function ResidentWizard({ societyId, onClose }: { societyId: numb
     staleTime: 30_000,
   });
 
-  // http returns AxiosResponse; .data = body { success, data: [...] }; .data.data = array
-  const inactiveOwners: any[] = (inactiveOwnersQ.data as any)?.data?.data ?? [];
+  // http client already unwraps AxiosResponse via .then(r => r.data), so .data = body { success, data: [...] }
+  const inactiveOwners: any[] = (inactiveOwnersQ.data as any)?.data ?? [];
 
   // debug logs removed
 
