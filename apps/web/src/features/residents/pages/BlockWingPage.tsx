@@ -12,9 +12,9 @@ import {
 } from "lucide-react";
 
 import {
-  useEffect,
   useMemo,
   useState,
+  useEffect,
 } from "react";
 
 import { toast } from "sonner";
@@ -26,6 +26,7 @@ import {
 } from "@/api/residents.api";
 
 import { useScope } from "@/app/scope/ScopeProvider";
+import { QK } from "@/lib/queryKeys";
 
 /* ====================================================== */
 /* ADD BLOCK MODAL */
@@ -83,7 +84,7 @@ function AddBlockModal({
         );
 
         await qc.invalidateQueries({
-          queryKey: ["blocks"],
+          queryKey: QK.blocks(societyId),
         });
 
         onClose();
@@ -225,9 +226,6 @@ export function BlockWingPage() {
     society,
   } = useScope();
 
-  const qc =
-    useQueryClient();
-
   const [
     addOpen,
     setAddOpen,
@@ -270,20 +268,9 @@ export function BlockWingPage() {
 
   useEffect(() => {
 
-    setExpandedBlock(
-      null
-    );
+    setExpandedBlock(null);
 
-    qc.removeQueries({
-      queryKey: [
-        "block-units",
-      ],
-    });
-
-  }, [
-    societyId,
-    qc,
-  ]);
+  }, [societyId]);
 
   /* ====================================================== */
   /* BLOCKS QUERY */
@@ -296,10 +283,7 @@ export function BlockWingPage() {
     error,
   } = useQuery<Block[]>({
 
-    queryKey: [
-      "blocks",
-      societyId,
-    ],
+    queryKey: QK.blocks(societyId ?? 0),
 
     enabled:
       !!societyId,
@@ -437,6 +421,10 @@ export function BlockWingPage() {
                 expandedBlock ===
                 b.block_id;
 
+              const vacantUnits = Number((b as any).vacant_units ?? 0);
+              const peopleLiving = Number((b as any).total_people_living ?? 0);
+              const occupancyPct = Number((b as any).occupancy_percentage ?? pct);
+
               return (
 
                 <div
@@ -481,31 +469,33 @@ export function BlockWingPage() {
                     </button>
                   </div>
 
-                  <div className="mt-4">
+                  {/* Aggregate stats grid */}
+                  <div className="mt-3 grid grid-cols-2 gap-2 text-xs text-gray-600">
+                    <div>
+                      <span className="font-medium text-gray-900">{total}</span>{" "}Total Units
+                    </div>
+                    <div>
+                      <span className="font-medium text-green-700">{occupied}</span>{" "}Occupied
+                    </div>
+                    <div>
+                      <span className="font-medium text-gray-500">{vacantUnits}</span>{" "}Vacant
+                    </div>
+                    <div>
+                      <span className="font-medium text-blue-700">{peopleLiving}</span>{" "}People
+                    </div>
+                  </div>
 
+                  {/* Occupancy bar */}
+                  <div className="mt-3">
                     <div className="mb-1 flex items-center justify-between text-xs">
-
-                      <span>
-                        Occupancy
-                      </span>
-
-                      <span>
-                        {pct}%
-                      </span>
+                      <span className="text-gray-500">Occupancy</span>
+                      <span className="font-medium">{occupancyPct.toFixed(1)}%</span>
                     </div>
-
-                    <div className="h-2 rounded-full bg-gray-100">
-
+                    <div className="h-1.5 w-full rounded-full bg-gray-200">
                       <div
-                        className={`h-2 rounded-full ${barClass}`}
-                        style={{
-                          width: `${pct}%`,
-                        }}
+                        className={`h-1.5 rounded-full ${barClass}`}
+                        style={{ width: `${Math.min(100, occupancyPct)}%` }}
                       />
-                    </div>
-
-                    <div className="mt-1 text-xs text-gray-500">
-                      {occupied} / {total} occupied
                     </div>
                   </div>
                 </div>
@@ -574,11 +564,7 @@ function BlockUnitsPanel({
     error,
   } = useQuery<Unit[]>({
 
-    queryKey: [
-      "block-units",
-      societyId,
-      blockId,
-    ],
+    queryKey: QK.units(societyId ?? 0, blockId),
 
     enabled:
       !!blockId &&

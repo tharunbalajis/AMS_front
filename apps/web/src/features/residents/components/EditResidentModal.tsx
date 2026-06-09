@@ -11,6 +11,7 @@ import { toast } from "sonner";
 
 import { residentsApi } from "../../../api/residents.api";
 import { normalizeList } from "@ams/utils";
+import { QK } from "@/lib/queryKeys";
 
 import { Loader2, User, UserPlus, X } from "lucide-react";
 type ResidentForm = {
@@ -47,7 +48,7 @@ export function EditResidentModal({
     });
 
   const unitsQuery = useQuery({
-    queryKey: ["units", resident.society_id],
+    queryKey: QK.units(resident.society_id ?? 0),
     queryFn: () =>
       residentsApi.getUnits({
         society_id: resident.society_id,
@@ -78,14 +79,21 @@ export function EditResidentModal({
       toast.success("Resident updated successfully");
 
       qc.invalidateQueries({
-        queryKey: ["residents"],
+        queryKey: QK.residents(resident.society_id ?? 0),
+      });
+      qc.invalidateQueries({
+        queryKey: QK.units(resident.society_id ?? 0),
+      });
+      qc.invalidateQueries({
+        queryKey: QK.dashboardStats(resident.society_id ?? 0),
       });
 
       onClose();
     },
 
-    onError: (err: Error) => {
-      toast.error(err.message || "Failed to update resident");
+    onError: (e: any) => {
+      const msg = e?.response?.data?.message ?? e?.response?.data?.error ?? e?.message ?? "Failed to update resident";
+      toast.error(msg);
     },
   });
 

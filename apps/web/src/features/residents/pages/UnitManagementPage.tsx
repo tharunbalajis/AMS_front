@@ -447,10 +447,7 @@ export function UnitManagementPage() {
     data: blocks = [],
   } = useQuery<Block[]>({
 
-    queryKey: [
-      "blocks",
-      selectedSocietyId,
-    ],
+    queryKey: QK.blocks(selectedSocietyId ?? 0),
 
     queryFn: async () => {
 
@@ -478,9 +475,7 @@ export function UnitManagementPage() {
   } = useQuery({
 
     queryKey: [
-      "units",
-      selectedSocietyId,
-      blockId,
+      ...QK.units(selectedSocietyId ?? 0, blockId ? Number(blockId) : undefined),
       unitType,
       status,
       search,

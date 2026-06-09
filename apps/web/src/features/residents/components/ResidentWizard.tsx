@@ -179,7 +179,10 @@ export default function ResidentWizard({ societyId, onClose }: { societyId: numb
       qc.invalidateQueries({ queryKey: QK.inactiveOwners(societyId) });
       onClose();
     },
-    onError: (e: any) => toast.error((e as any)?.response?.data?.message ?? (e as Error)?.message ?? "Save failed"),
+    onError: (e: any) => {
+      const msg = e?.response?.data?.message ?? e?.response?.data?.error ?? e?.message ?? "Failed to save resident";
+      toast.error(msg);
+    },
   });
 
   const totalSteps = mode === "OWNER" ? 7 : mode === "TENANT" ? 7 : 1;

@@ -32,6 +32,7 @@ import {
 } from "recharts";
 import { dashboardApi } from "../../../app/api/client";
 import { useScope } from "../../../app/scope/ScopeProvider";
+import { QK } from "@/lib/queryKeys";
 
 export function DashboardPage() {
   const { queryParams, society } = useScope();
@@ -42,8 +43,11 @@ export function DashboardPage() {
   });
 
   const statsQuery = useQuery({
-    queryKey: ["dashboard-stats", society?.society_id],
+    queryKey: QK.dashboardStats(society?.society_id ?? 0),
     queryFn: () => dashboardApi.stats(society?.society_id),
+    enabled: !!society?.society_id,
+    staleTime: 60_000,
+    refetchOnWindowFocus: true,
   });
 
   const data  = overview.data;
@@ -64,6 +68,13 @@ export function DashboardPage() {
   const occupancyPct    = totalUnits ? ((occupied / totalUnits) * 100).toFixed(1) : "0.0";
   const visitorsToday   = stats?.visitors_today     ?? (data?.visitors ?? []).length;
   const activeStaff     = stats?.active_staff       ?? (data?.staff ?? []).length;
+
+  // New fields from the enhanced stats endpoint
+  const totalOwners     = (stats as any)?.total_owners          ?? owners;
+  const totalTenants    = (stats as any)?.total_tenants         ?? tenants;
+  const vacantUnits     = (stats as any)?.vacant_units          ?? (totalUnits - occupied);
+  const totalOccupants  = (stats as any)?.total_occupants       ?? 0;
+  const avgOccupancy    = (stats as any)?.avg_occupancy_per_unit ?? 0;
 
   // ── Chart 1: Residents by block ───────────────────────────────────────────
   const residentsByBlock = useMemo(() => {
@@ -129,14 +140,18 @@ export function DashboardPage() {
 
   // ── KPI card definitions ──────────────────────────────────────────────────
   const kpiCards = [
-    { label: "TOTAL RESIDENTS", value: totalResidents,        icon: Users,         accent: "border-l-blue-500",   bg: "bg-blue-50",    text: "text-blue-700"   },
-    { label: "ACTIVE RESIDENTS", value: activeResidents,      icon: Users,         accent: "border-l-green-500",  bg: "bg-green-50",   text: "text-green-700"  },
-    { label: "TOTAL UNITS",      value: totalUnits,           icon: Home,          accent: "border-l-purple-500", bg: "bg-purple-50",  text: "text-purple-700" },
-    { label: "OCCUPIED UNITS",   value: occupied,             icon: Building,      accent: "border-l-teal-500",   bg: "bg-teal-50",    text: "text-teal-700",  sub: `${occupancyPct}% occupancy` },
-    { label: "OWNERS",           value: owners,               icon: Shield,        accent: "border-l-indigo-500", bg: "bg-indigo-50",  text: "text-indigo-700" },
-    { label: "TENANTS",          value: tenants,              icon: Users,         accent: "border-l-violet-500", bg: "bg-violet-50",  text: "text-violet-700" },
-    { label: "OPEN COMPLAINTS",  value: openComplaints,       icon: AlertCircle,   accent: "border-l-red-500",    bg: "bg-red-50",     text: "text-red-700"    },
-    { label: "OCCUPANCY RATE",   value: `${occupancyPct}%`,   icon: TrendingUp,    accent: "border-l-amber-500",  bg: "bg-amber-50",   text: "text-amber-700"  },
+    { label: "TOTAL RESIDENTS",    value: totalResidents,              icon: Users,       accent: "border-l-blue-500",   bg: "bg-blue-50",    text: "text-blue-700"   },
+    { label: "ACTIVE RESIDENTS",   value: activeResidents,             icon: Users,       accent: "border-l-green-500",  bg: "bg-green-50",   text: "text-green-700"  },
+    { label: "TOTAL UNITS",        value: totalUnits,                  icon: Home,        accent: "border-l-purple-500", bg: "bg-purple-50",  text: "text-purple-700" },
+    { label: "OCCUPIED UNITS",     value: occupied,                    icon: Building,    accent: "border-l-teal-500",   bg: "bg-teal-50",    text: "text-teal-700",  sub: `${occupancyPct}% occupancy` },
+    { label: "VACANT UNITS",       value: vacantUnits,                 icon: Home,        accent: "border-l-gray-400",   bg: "bg-gray-50",    text: "text-gray-700"   },
+    { label: "OWNERS",             value: totalOwners,                 icon: Shield,      accent: "border-l-indigo-500", bg: "bg-indigo-50",  text: "text-indigo-700" },
+    { label: "TENANTS",            value: totalTenants,                icon: Users,       accent: "border-l-violet-500", bg: "bg-violet-50",  text: "text-violet-700" },
+    { label: "TOTAL OCCUPANTS",    value: totalOccupants,              icon: Users,       accent: "border-l-cyan-500",   bg: "bg-cyan-50",    text: "text-cyan-700"   },
+    { label: "AVG OCCUPANCY/UNIT", value: `${Number(avgOccupancy).toFixed(1)}`, icon: TrendingUp, accent: "border-l-amber-500", bg: "bg-amber-50", text: "text-amber-700" },
+    { label: "OPEN COMPLAINTS",    value: openComplaints,              icon: AlertCircle, accent: "border-l-red-500",    bg: "bg-red-50",     text: "text-red-700"    },
+    { label: "OCCUPANCY RATE",     value: `${occupancyPct}%`,          icon: TrendingUp,  accent: "border-l-emerald-500",bg: "bg-emerald-50", text: "text-emerald-700"},
+    { label: "VISITORS TODAY",     value: visitorsToday,               icon: Shield,      accent: "border-l-pink-500",   bg: "bg-pink-50",    text: "text-pink-700"   },
   ];
 
   const quickActions = [

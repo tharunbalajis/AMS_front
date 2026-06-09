@@ -76,6 +76,7 @@ export type Column<T> = {
 };
 
 export function DataTable<T extends Record<string, unknown>>({ title, rows, columns, isLoading, emptyText = "No records found" }: { title: string; rows: T[]; columns: Column<T>[]; isLoading?: boolean; emptyText?: string }) {
+  const safeRows = Array.isArray(rows) ? rows : [];
   return (
     <Card className="overflow-hidden">
       <div className="flex flex-col gap-3 border-b border-gray-200 p-4 sm:flex-row sm:items-center sm:justify-between dark:border-gray-800">
@@ -99,8 +100,8 @@ export function DataTable<T extends Record<string, unknown>>({ title, rows, colu
               Array.from({ length: 5 }).map((_, index) => (
                 <tr key={index}>{columns.map((column) => <td key={String(column.key)} className="px-4 py-3"><Skeleton className="h-4 w-28" /></td>)}</tr>
               ))
-            ) : rows.length ? (
-              rows.map((row, index) => (
+            ) : safeRows.length ? (
+              safeRows.map((row, index) => (
                 <tr key={String(row.__rowKey ?? row.id ?? row.unit_id ?? row.block_id ?? row.complaint_id ?? row.visitor_id ?? index)} className="h-12 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800/60">
                   {columns.map((column) => <td key={String(column.key)} className="px-4 py-3 text-gray-700 dark:text-gray-200">{column.render ? column.render(row) : String(row[column.key] ?? "-")}</td>)}
                 </tr>
