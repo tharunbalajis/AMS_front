@@ -14,18 +14,21 @@ export interface Pagination {
 }
 
 export interface InactiveOwner {
-  id: string;
-  resident_id: string;
+  resident_id: string;          // canonical — backend always sends this
+  id?: string;                  // optional fallback
   full_name: string;
+  mobile_primary?: string;
   unit_id: number | null;
   unit_number: string | null;
   block_name: string | null;
   block_id: number | null;
-  label: string;
+  is_active?: boolean;
+  label?: string;
 }
 
 export interface Resident {
   id: string;
+  resident_id?: string;         // alias — backend sends both
   full_name: string;
   email: string | null;
   mobile_primary: string;
@@ -48,7 +51,7 @@ export interface Resident {
 export interface Unit {
   unit_id: number;
   unit_number: string;
-  floor_number?: number;
+  floor_number?: number | null;
   unit_type: string | null;
   block_id: number;
   block_name: string | null;
@@ -57,6 +60,7 @@ export interface Unit {
     | "VACANT"
     | "OWNER_OCCUPIED"
     | "RENTED";
+  occupant_count?: number;
   parking_slots: number;
   owner_id: string | null;
   owner_name: string | null;
@@ -182,14 +186,13 @@ export const residentsApi = {
         { params }
       );
 
-    console.log(
-      "RESIDENT RAW RESPONSE",
-      response.data
-    );
-
-    return unwrapResponse<Resident>(
-      response.data
-    );
+    const result = unwrapResponse<Resident>(response.data);
+    // Ensure every resident has resident_id set so callers can use either key
+    result.data = result.data.map((r: any) => ({
+      ...r,
+      resident_id: r.resident_id ?? r.id,
+    }));
+    return result;
   },
 
   getById: async (
@@ -267,11 +270,6 @@ export const residentsApi = {
         { params }
       );
 
-    console.log(
-      "UNITS API RESPONSE",
-      response.data
-    );
-
     return unwrapResponse<Unit>(
       response.data
     );
@@ -332,11 +330,6 @@ export const residentsApi = {
         { params }
       );
 
-    console.log(
-      "BLOCKS API RESPONSE",
-      response.data
-    );
-
     return unwrapArray<Block>(
       response.data
     );
@@ -387,11 +380,6 @@ export const residentsApi = {
         { params }
       );
 
-    console.log(
-      "VEHICLES API RESPONSE",
-      response.data
-    );
-
     return unwrapArray<any>(
       response.data
     );
@@ -424,11 +412,6 @@ export const residentsApi = {
         { params }
       );
 
-    console.log(
-      "PETS API RESPONSE",
-      response.data
-    );
-
     return unwrapArray<any>(
       response.data
     );
@@ -460,11 +443,6 @@ export const residentsApi = {
         "/residents/leases",
         { params }
       );
-
-    console.log(
-      "LEASES API RESPONSE",
-      response.data
-    );
 
     return unwrapArray<any>(
       response.data
@@ -570,11 +548,6 @@ export const residentsApi = {
         "/residents/inactive-owners",
         { params }
       );
-
-    console.log(
-      "OWNERS API RESPONSE",
-      response.data
-    );
 
     return unwrapArray<InactiveOwner>(
       response.data

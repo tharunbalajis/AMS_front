@@ -76,10 +76,7 @@ function AddUnitModal({
     data: blocks = [],
   } = useQuery<Block[]>({
 
-    queryKey: [
-      "blocks",
-      societyId,
-    ],
+    queryKey: QK.blocks(societyId),
 
     queryFn: async () => {
 
@@ -149,7 +146,8 @@ function AddUnitModal({
         );
 
         await qc.invalidateQueries({
-          queryKey: QK.units(societyId),
+          queryKey: ["units", societyId],
+          exact: false,
         });
 
         await qc.invalidateQueries({
@@ -512,11 +510,6 @@ export function UnitManagementPage() {
 
           page_size: 500,
         });
-
-      console.log(
-        "UNITS API RESPONSE",
-        response
-      );
 
       return response;
     },

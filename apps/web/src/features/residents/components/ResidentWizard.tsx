@@ -65,7 +65,9 @@ export default function ResidentWizard({ societyId, onClose }: { societyId: numb
     enabled: mode === "TENANT",
     staleTime: 30_000,
   });
-  const inactiveOwners: any[] = (inactiveOwnersQ.data as any)?.data ?? [];
+  const inactiveOwners: any[] = Array.isArray(inactiveOwnersQ.data)
+    ? inactiveOwnersQ.data
+    : ((inactiveOwnersQ.data as any)?.data ?? []);
 
   // Parking slots per unit - cached map
   const [parkingOptions, setParkingOptions] = useState<Record<string, string[]>>({});
@@ -142,7 +144,7 @@ export default function ResidentWizard({ societyId, onClose }: { societyId: numb
         return residentId;
       }
       // TENANT
-      const ownerRecord = inactiveOwners.find((o: any) => String(o.resident_id) === selectedOwnerId) as any;
+      const ownerRecord = inactiveOwners.find((o: any) => String(o.resident_id ?? o.id ?? "") === selectedOwnerId) as any;
       const payload: any = {
         society_id: societyId,
         unit_id: Number(ownerRecord?.unit_id) || undefined,
@@ -189,7 +191,7 @@ export default function ResidentWizard({ societyId, onClose }: { societyId: numb
 
   const tenantOwnerUnit = useMemo(() => {
     if (mode !== "TENANT" || !selectedOwnerId) return "";
-    const o = inactiveOwners.find((x: any) => String(x.resident_id) === selectedOwnerId);
+    const o = inactiveOwners.find((x: any) => String(x.resident_id ?? x.id ?? "") === selectedOwnerId);
     return o ? `${o.block_name ? o.block_name + " — " : ""}${o.unit_number ?? "No Unit"}` : "";
   }, [mode, selectedOwnerId, inactiveOwners]);
 
@@ -305,8 +307,9 @@ export default function ResidentWizard({ societyId, onClose }: { societyId: numb
                 <Select value={selectedOwnerId} onChange={e => setSelectedOwnerId(e.target.value)}>
                   <option value="">Select owner</option>
                   {inactiveOwners.map((o: any) => {
-                    const id = String(o.resident_id ?? "");
-                    const label = `${o.block_name ? o.block_name + " — " : ""}${o.unit_number ?? "No Unit"} (${o.full_name})`;
+                    const id     = String(o.resident_id ?? o.id ?? "");
+                    const status = o.is_active ? "Active" : "Inactive";
+                    const label  = `${o.block_name ? o.block_name + " — " : ""}${o.unit_number ?? "No Unit"} · ${o.full_name} (${status})`;
                     return <option key={id} value={id}>{label}</option>;
                   })}
                 </Select>

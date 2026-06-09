@@ -47,6 +47,7 @@ export function OccupancyHeatmapPage() {
       }),
     enabled: !!societyId,
     staleTime: 0,
+    refetchOnMount: "always",
     select: (data) => {
       const raw = (data as any)?.data ?? data ?? [];
       return Array.isArray(raw) ? raw : [];

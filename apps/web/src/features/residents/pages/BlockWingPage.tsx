@@ -432,7 +432,14 @@ export function BlockWingPage() {
                   className="rounded-2xl border bg-white p-4"
                 >
 
-                  <div className="flex items-start justify-between">
+                  <div
+                    className="flex items-start justify-between cursor-pointer"
+                    onClick={() =>
+                      setExpandedBlock(current =>
+                        current === b.block_id ? null : b.block_id
+                      )
+                    }
+                  >
 
                     <div className="flex items-center gap-3">
 
@@ -452,21 +459,9 @@ export function BlockWingPage() {
                       </div>
                     </div>
 
-                    <button
-                      type="button"
-                      onClick={() => {
-
-                        setExpandedBlock(
-                          current =>
-                            current === b.block_id
-                              ? null
-                              : b.block_id
-                        );
-                      }}
-                      className="rounded p-2 hover:bg-gray-100"
-                    >
-                      ▼
-                    </button>
+                    <span className="rounded p-2 text-gray-400 hover:bg-gray-100">
+                      {isOpen ? "▲" : "▼"}
+                    </span>
                   </div>
 
                   {/* Aggregate stats grid */}

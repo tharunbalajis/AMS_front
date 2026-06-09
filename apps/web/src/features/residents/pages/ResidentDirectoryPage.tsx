@@ -310,7 +310,7 @@ export function ResidentDirectoryPage() {
 
             {isLoading
               ? "Loading residents..."
-              : `${rows.length} residents registered`}
+              : `${(data as any)?.pagination?.total ?? rows.length} residents registered`}
           </p>
         </div>
 
