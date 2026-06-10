@@ -100,8 +100,7 @@ export function EditResidentModal({
   const isValid =
     form.full_name.trim() &&
     form.mobile_primary.trim() &&
-    form.unit_id &&
-    form.move_in_date;
+    form.unit_id;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">

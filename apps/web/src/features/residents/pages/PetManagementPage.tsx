@@ -104,7 +104,8 @@ function AddPetModal({ societyId, onClose }: { societyId: number; onClose: () =>
 }
 
 export function PetManagementPage() {
-  const { queryParams, society } = useScope();
+  const { queryParams, society, selectedSocietyId } = useScope();
+  const societyId = selectedSocietyId;
   const [search, setSearch] = useState("");
   const [species, setSpecies] = useState("");
   const [ownerType, setOwnerType] = useState("");
@@ -113,6 +114,7 @@ export function PetManagementPage() {
   const { data: raw, isLoading } = useQuery({
     queryKey: ["pets", queryParams, search, species],
     queryFn: () => residentsApi.getPets({ ...queryParams, search: search || undefined, species: species || undefined }),
+    enabled: !!societyId,
     retry: false,
   });
 

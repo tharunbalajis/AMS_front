@@ -27,12 +27,12 @@ export interface InactiveOwner {
 }
 
 export interface Resident {
-  id: string;
-  resident_id?: string;         // alias — backend sends both
+  resident_id: string;          // canonical PK
+  id?: string;                  // alias — backend sends both
   full_name: string;
   email: string | null;
   mobile_primary: string;
-  resident_type: "OWNER" | "TENANT";
+  resident_type: "OWNER" | "TENANT" | "FAMILY";
   move_in_date: string | null;
   move_out_date: string | null;
   is_active: boolean;
@@ -44,6 +44,8 @@ export interface Resident {
   block_id: number | null;
   block_name: string | null;
   society_name: string | null;
+  member_count?: number | null;
+  status?: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -72,7 +74,6 @@ export interface ParkingSlot {
   parking_slot_id: string;
   slot_code: string;
   slot_type: string;
-  parking_status: string;
 }
 
 export interface Block {
@@ -280,6 +281,11 @@ export const residentsApi = {
     return unwrapResponse<Unit>(
       response.data
     );
+  },
+
+  getUnitDetail: async (unitId: number) => {
+    const response = await http.get(`/units/${unitId}/detail`);
+    return (response.data?.data ?? response.data) as Record<string, unknown>;
   },
 
   createUnit: async (

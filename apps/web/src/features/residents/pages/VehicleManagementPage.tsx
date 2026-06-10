@@ -96,7 +96,8 @@ function AddVehicleModal({ societyId, onClose }: { societyId: number; onClose: (
 }
 
 export function VehicleManagementPage() {
-  const { queryParams, society } = useScope();
+  const { queryParams, society, selectedSocietyId } = useScope();
+  const societyId = selectedSocietyId;
   const [search, setSearch] = useState("");
   const [type, setType] = useState("");
   const [addOpen, setAddOpen] = useState(false);
@@ -104,6 +105,7 @@ export function VehicleManagementPage() {
   const { data: raw, isLoading } = useQuery({
     queryKey: ["vehicles", queryParams, search, type],
     queryFn: () => residentsApi.getVehicles({ ...queryParams, search: search || undefined, vehicle_type: type || undefined }),
+    enabled: !!societyId,
     retry: false,
   });
 

@@ -46,10 +46,12 @@ function RowActions({
   row,
   societyId,
   blockId,
+  onEdit,
 }: {
   row: Record<string, unknown>;
   societyId: number;
   blockId?: number;
+  onEdit: (row: Record<string, unknown>) => void;
 }) {
 
   const [open, setOpen] =
@@ -106,6 +108,7 @@ function RowActions({
             type="button"
             onClick={() => {
               setOpen(false);
+              onEdit(row);
             }}
             className="w-full px-4 py-2 text-left text-sm hover:bg-gray-50"
           >
@@ -474,6 +477,10 @@ export function ResidentDirectoryPage() {
                 row={row}
                 societyId={societyId!}
                 blockId={blockId}
+                onEdit={(r) => {
+                  setEditingResident(r);
+                  setEditOpen(true);
+                }}
               />
             ),
           },

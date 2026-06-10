@@ -17,7 +17,8 @@ import { toast } from "sonner";
 
 export function LeaseAgreementsPage() {
 
-  const { queryParams } = useScope();
+  const { queryParams, selectedSocietyId } = useScope();
+  const societyId = selectedSocietyId;
 
   const [search, setSearch] =
     useState("");
@@ -35,10 +36,10 @@ export function LeaseAgreementsPage() {
     queryFn: () =>
       residentsApi.getLeases({
         ...queryParams,
-        search:
-          search || undefined,
+        search: search || undefined,
       }),
 
+    enabled: !!societyId,
     retry: false,
   });
 
@@ -54,6 +55,14 @@ export function LeaseAgreementsPage() {
     onSuccess: () => { toast.success('Lease ended and tenant moved out'); qc.invalidateQueries({ queryKey: ['leases'] }); qc.invalidateQueries({ queryKey: ['residents'] }); },
     onError: (e: any) => { toast.error((e as any)?.response?.data?.message ?? (e as Error)?.message ?? 'Operation failed'); }
   });
+
+  if (!societyId) {
+    return (
+      <div className="flex h-64 items-center justify-center text-gray-400">
+        <p>Select a society to view lease agreements.</p>
+      </div>
+    );
+  }
 
   return (
 

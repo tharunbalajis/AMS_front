@@ -456,7 +456,7 @@ export default function ResidentWizard({ societyId, onClose }: { societyId: numb
                   >
                     <option value="">Select parking</option>
                     {parkingSlots.map(p => (
-                      <option key={p.parking_slot_id} value={p.parking_slot_id}>
+                      <option key={p.parking_slot_id} value={p.slot_code}>
                         {p.slot_code} ({p.slot_type})
                       </option>
                     ))}

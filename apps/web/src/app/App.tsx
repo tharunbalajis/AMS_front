@@ -25,6 +25,7 @@ import { MoveInOutPage } from "../features/residents/pages/MoveInOutPage";
 import { ResidentQRPassPage } from "../features/residents/pages/ResidentQRPassPage";
 import { BulkImportPage } from "../features/residents/pages/BulkImportPage";
 import { OccupancyHeatmapPage } from "../features/residents/pages/OccupancyHeatmapPage";
+import { ParkingManagementPage } from "../features/residents/pages/ParkingManagementPage";
 
 // Visitor pages
 import { SecurityDashboardPage } from "../features/visitors/pages/SecurityDashboardPage";
@@ -59,7 +60,7 @@ import { FinancialReportsPage } from "../features/financials/pages/FinancialRepo
 const CUSTOM_SLUGS = new Set([
   "roles", "users",
   "residents", "residents/overview", "residents/leases", "residents/vehicles", "residents/pets",
-  "residents/move", "residents/qr-pass", "residents/import",
+  "residents/move", "residents/qr-pass", "residents/import", "residents/parking",
   "units", "blocks",
   "visitors/security", "visitors/checkin", "visitors/logs", "visitors/guard", "visitors/qr",
   "visitors/deliveries", "visitors/attendance", "visitors/sos", "visitors/passes",
@@ -113,6 +114,7 @@ export function App() {
         <Route path="residents/qr-pass" element={<PermissionRoute permission="residents.view"><ResidentQRPassPage /></PermissionRoute>} />
         <Route path="residents/import" element={<PermissionRoute permission="residents.view"><BulkImportPage /></PermissionRoute>} />
         <Route path="residents/heatmap" element={<PermissionRoute permission="residents.view"><OccupancyHeatmapPage /></PermissionRoute>} />
+        <Route path="residents/parking" element={<PermissionRoute permission="residents.view"><ParkingManagementPage /></PermissionRoute>} />
 
         {/* ── Unit / Block custom routes ── */}
         <Route path="units" element={<PermissionRoute permission="units.view"><UnitManagementPage /></PermissionRoute>} />
