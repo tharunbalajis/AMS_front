@@ -46,6 +46,8 @@ import { SLAMonitoringPage } from "../features/complaints/pages/SLAMonitoringPag
 import { EscalationQueuePage } from "../features/complaints/pages/EscalationQueuePage";
 import { MaintenanceRequestsPage } from "../features/complaints/pages/MaintenanceRequestsPage";
 import { ComplaintAnalyticsPage } from "../features/complaints/pages/ComplaintAnalyticsPage";
+import { ComplaintDetailPage } from "../features/complaints/pages/ComplaintDetailPage";
+import { CategoriesPage } from "../features/complaints/pages/CategoriesPage";
 
 // Finance pages
 import { FinanceDashboardPage } from "../features/financials/pages/FinanceDashboardPage";
@@ -66,6 +68,7 @@ const CUSTOM_SLUGS = new Set([
   "visitors/deliveries", "visitors/attendance", "visitors/sos", "visitors/passes",
   "complaints/dashboard", "complaints/new", "complaints", "complaints/sla",
   "complaints/escalation", "complaints/maintenance", "complaints/analytics",
+  "complaints/categories",
   "financials", "financials/invoices", "financials/payments", "financials/expenses",
   "financials/gst", "financials/penalties", "financials/reports",
 ]);
@@ -139,6 +142,8 @@ export function App() {
         <Route path="complaints/escalation" element={<PermissionRoute permission="complaints.view"><EscalationQueuePage /></PermissionRoute>} />
         <Route path="complaints/maintenance" element={<PermissionRoute permission="complaints.view"><MaintenanceRequestsPage /></PermissionRoute>} />
         <Route path="complaints/analytics" element={<PermissionRoute permission="complaints.view"><ComplaintAnalyticsPage /></PermissionRoute>} />
+        <Route path="complaints/categories" element={<PermissionRoute permission="complaints.view"><CategoriesPage /></PermissionRoute>} />
+        <Route path="complaints/:id" element={<PermissionRoute permission="complaints.view"><ComplaintDetailPage /></PermissionRoute>} />
 
         {/* ── Finance custom routes ── */}
         <Route path="financials" element={<PermissionRoute permission="finance.view"><FinanceDashboardPage /></PermissionRoute>} />

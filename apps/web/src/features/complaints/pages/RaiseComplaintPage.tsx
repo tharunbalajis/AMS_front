@@ -11,6 +11,7 @@ import { useScope } from "@/app/scope/ScopeProvider";
 export function RaiseComplaintPage() {
   const { queryParams, society } = useScope();
   const qc = useQueryClient();
+  const societyId = queryParams?.society_id ?? society?.society_id ?? 1;
 
   const [unitId, setUnitId]         = useState("");
   const [categoryId, setCategoryId] = useState("");
@@ -19,31 +20,60 @@ export function RaiseComplaintPage() {
   const [priority, setPriority]     = useState("MEDIUM");
 
   const unitsQuery = useQuery({
-    queryKey: ["units-complaint", queryParams.society_id],
-    queryFn: () => residentsApi.getUnits({ society_id: queryParams.society_id, page: 1, page_size: 300 }),
-    enabled: Boolean(queryParams.society_id),
+    queryKey: ["units-complaint", societyId],
+    queryFn: () => residentsApi.getUnits({ society_id: societyId, page: 1, page_size: 300 }),
+    enabled: Boolean(societyId),
     retry: false,
   });
   const units = normalizeList<Record<string, unknown>>(unitsQuery.data?.data ?? unitsQuery.data);
 
   const catsQuery = useQuery({
-    queryKey: ["complaint-categories", queryParams.society_id],
-    queryFn: () => complaintsApi.getCategories({ society_id: queryParams.society_id }),
+    queryKey: ["complaint-categories", societyId],
+    queryFn: () => complaintsApi.getCategories({ society_id: societyId }),
+    enabled: Boolean(societyId),
     retry: false,
   });
   const categories = normalizeList<Record<string, unknown>>(catsQuery.data?.data ?? catsQuery.data);
 
+  const slaQuery = useQuery({
+    queryKey: ["sla-priorities", societyId],
+    queryFn: () => complaintsApi.getSlaPriorities({ society_id: societyId }),
+    enabled: Boolean(societyId),
+    retry: false,
+  });
+  const slaPriorities = normalizeList<Record<string, unknown>>(slaQuery.data?.data ?? slaQuery.data);
+  const priorityHoursMap = slaPriorities.reduce<Record<string, number>>((map, item) => {
+    const key = String(item.priority ?? '').toUpperCase();
+    const value = Number(item.hours ?? NaN);
+    if (key) map[key] = Number.isFinite(value) ? value : map[key] ?? 0;
+    return map;
+  }, {
+    CRITICAL: 4,
+    HIGH: 20,
+    MEDIUM: 48,
+    LOW: 60,
+  });
+  const selectedPriorityHours = priorityHoursMap[priority] ?? 48;
+  const priorityLabelData = [
+    { key: 'CRITICAL', label: 'Critical', color: 'text-red-600' },
+    { key: 'HIGH',     label: 'High',     color: 'text-orange-600' },
+    { key: 'MEDIUM',   label: 'Medium',   color: 'text-yellow-600' },
+    { key: 'LOW',      label: 'Low',      color: 'text-gray-600' },
+  ];
+
   const mutation = useMutation({
-    mutationFn: () =>
-      complaintsApi.create({
-        society_id:  queryParams.society_id ?? society?.society_id ?? 1,
+    mutationFn: () => {
+      const residentId = localStorage.getItem('user_id') || 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee';
+      return complaintsApi.create({
+        society_id:  societyId,
         unit_id:     Number(unitId),
-        category_id: categoryId || null,
+        raised_by:   residentId,
+        cat_id:      categoryId || null,
         title:       title.trim(),
         description: description.trim(),
         priority,
-        status:      "OPEN",
-      }),
+      });
+    },
     onSuccess: () => {
       toast.success("Complaint submitted successfully");
       qc.invalidateQueries({ queryKey: ["complaints"] });
@@ -155,6 +185,9 @@ export function RaiseComplaintPage() {
                   >{p}</button>
                 ))}
               </div>
+              <div className="mt-3 rounded-lg bg-slate-50 p-3 text-sm text-slate-700">
+                Response target for selected priority: <strong>{selectedPriorityHours} hours</strong>
+              </div>
             </div>
 
             <div>
@@ -185,17 +218,41 @@ export function RaiseComplaintPage() {
           <Card className="p-5">
             <h3 className="font-semibold text-gray-900">SLA Guidelines</h3>
             <div className="mt-3 space-y-3">
-              {[
-                { priority: "Critical", sla: "4 hours",  color: "text-red-600" },
-                { priority: "High",     sla: "24 hours", color: "text-orange-600" },
-                { priority: "Medium",   sla: "48 hours", color: "text-yellow-600" },
-                { priority: "Low",      sla: "72 hours", color: "text-gray-600" },
-              ].map((item) => (
-                <div key={item.priority} className="flex items-center justify-between text-sm">
-                  <span className={`font-semibold ${item.color}`}>{item.priority}</span>
-                  <span className="text-gray-500">Response within {item.sla}</span>
-                </div>
-              ))}
+              {categoryId && categories.length > 0 ? (
+                (() => {
+                  const selectedCategory = categories.find((c) => String(c.id ?? c.category_id) === categoryId);
+                  return selectedCategory ? (
+                    <>
+                      <div className="rounded-lg bg-blue-50 p-3">
+                        <p className="text-sm font-medium text-blue-900">
+                          <strong>{String(selectedCategory.category_name ?? "")}</strong>
+                        </p>
+                        <p className="mt-1 text-sm text-blue-800">
+                          Response within <strong>{selectedCategory.sla_hours || 48} hours</strong>
+                        </p>
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      {priorityLabelData.map((item) => (
+                        <div key={item.key} className="flex items-center justify-between text-sm">
+                          <span className={`font-semibold ${item.color}`}>{item.label}</span>
+                          <span className="text-gray-500">Response within {priorityHoursMap[item.key]} hours</span>
+                        </div>
+                      ))}
+                    </>
+                  );
+                })()
+              ) : (
+                <>
+                  {priorityLabelData.map((item) => (
+                    <div key={item.key} className="flex items-center justify-between text-sm">
+                      <span className={`font-semibold ${item.color}`}>{item.label}</span>
+                      <span className="text-gray-500">Response within {priorityHoursMap[item.key]} hours</span>
+                    </div>
+                  ))}
+                </>
+              )}
             </div>
           </Card>
           <Card className="p-5">

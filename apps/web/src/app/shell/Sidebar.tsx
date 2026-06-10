@@ -90,13 +90,14 @@ const groups: NavGroup[] = [
     icon: <MessageSquare size={18} />,
     permission: "complaints",
     items: [
-      { label: "Dashboard", to: "/complaints/dashboard", permission: "complaints" },
-      { label: "Raise Complaint", to: "/complaints/new", permission: "complaints" },
-      { label: "Complaint Tracking", to: "/complaints", permission: "complaints" },
-      { label: "SLA Monitoring", to: "/complaints/sla", permission: "complaints" },
-      { label: "Escalation Queue", to: "/complaints/escalation", permission: "complaints" },
-      { label: "Maintenance Requests", to: "/complaints/maintenance", permission: "complaints" },
-      { label: "Analytics", to: "/complaints/analytics", permission: "complaints" }
+      { label: "Dashboard",            to: "/complaints/dashboard",   permission: "complaints" },
+      { label: "Complaints",            to: "/complaints",             permission: "complaints" },
+      { label: "Raise Complaint",       to: "/complaints/new",         permission: "complaints" },
+      { label: "Categories",            to: "/complaints/categories",  permission: "complaints" },
+      { label: "SLA Monitoring",        to: "/complaints/sla",         permission: "complaints" },
+      { label: "Escalation Queue",      to: "/complaints/escalation",  permission: "complaints" },
+      { label: "Maintenance Requests",  to: "/complaints/maintenance", permission: "complaints" },
+      { label: "Analytics",             to: "/complaints/analytics",   permission: "complaints" }
     ]
   },
   {
