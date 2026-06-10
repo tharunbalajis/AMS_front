@@ -400,6 +400,11 @@ export const residentsApi = {
     return extractData(response);
   },
 
+  deleteVehicle: async (id: string) => {
+    const response = await http.delete(`/vehicles/${id}`);
+    return extractData(response);
+  },
+
   /* -------------------------------------------------- */
   /* PETS */
   /* -------------------------------------------------- */
@@ -429,6 +434,11 @@ export const residentsApi = {
         data
       );
 
+    return extractData(response);
+  },
+
+  deletePet: async (id: string) => {
+    const response = await http.delete(`/pets/${id}`);
     return extractData(response);
   },
 

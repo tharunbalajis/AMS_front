@@ -593,11 +593,7 @@ function BlockUnitsPanel({
           page_size: 500,
         });
 
-      return Array.isArray(
-        response
-      )
-        ? response
-        : [];
+      return Array.isArray(response) ? response : (response?.data ?? []);
     },
 
     staleTime: 0,

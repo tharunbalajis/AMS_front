@@ -13,14 +13,18 @@ function UnitCell({ unit }: { unit: any }) {
       ? "bg-gray-100 text-gray-400 border-gray-200"
       : status === "OWNER_OCCUPIED"
       ? "bg-green-100 text-green-800 border-green-200"
-      : status === "RENTED"
+      : status === "RENTED" || status === "TENANT_OCCUPIED"
       ? "bg-blue-100 text-blue-800 border-blue-200"
       : count > 10
       ? "bg-red-100 text-red-800 border-red-200"
       : "bg-gray-50 text-gray-600 border-gray-200";
 
   const label =
-    status === "VACANT" ? "Vacant" : `${count} Member${count === 1 ? "" : "s"}`;
+    status === "VACANT"
+      ? "Vacant"
+      : count > 0
+      ? `${count} Member${count === 1 ? "" : "s"}`
+      : "Occupied";
 
   return (
     <div
@@ -86,7 +90,7 @@ export function OccupancyHeatmapPage() {
   const totalUnits    = units.length;
   const vacantUnits   = units.filter((u: any) => String(u.occupancy_status ?? "").toUpperCase() === "VACANT").length;
   const ownerUnits    = units.filter((u: any) => String(u.occupancy_status ?? "").toUpperCase() === "OWNER_OCCUPIED").length;
-  const rentedUnits   = units.filter((u: any) => String(u.occupancy_status ?? "").toUpperCase() === "RENTED").length;
+  const rentedUnits   = units.filter((u: any) => ["RENTED", "TENANT_OCCUPIED"].includes(String(u.occupancy_status ?? "").toUpperCase())).length;
   const occupiedUnits = ownerUnits + rentedUnits;
   const pct           = totalUnits > 0 ? Math.round((occupiedUnits / totalUnits) * 100) : 0;
 
