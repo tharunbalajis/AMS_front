@@ -7,12 +7,16 @@ export function useScopedInvalidate() {
   const qc = useQueryClient();
 
   const invalidateAfterResidentChange = useCallback(
-    (societyId: number, blockId?: number) => {
-      qc.invalidateQueries({ queryKey: QK.residents(societyId, blockId) });
-      qc.invalidateQueries({ queryKey: QK.units(societyId, blockId) });
-      qc.invalidateQueries({ queryKey: QK.blocks(societyId) });
-      qc.invalidateQueries({ queryKey: QK.dashboardStats(societyId) });
-      qc.invalidateQueries({ queryKey: QK.occupancyHeatmap(societyId) });
+    async (societyId: number, blockId?: number) => {
+      await Promise.all([
+        qc.invalidateQueries({ queryKey: QK.residents(societyId, blockId) }),
+        qc.invalidateQueries({ queryKey: QK.units(societyId, blockId) }),
+        qc.invalidateQueries({ queryKey: QK.blocks(societyId) }),
+        qc.invalidateQueries({ queryKey: QK.dashboardStats(societyId) }),
+        qc.invalidateQueries({ queryKey: QK.occupancyHeatmap(societyId) }),
+        qc.invalidateQueries({ queryKey: QK.inactiveOwners(societyId) }),
+        qc.invalidateQueries({ queryKey: QK.leases(societyId) }),
+      ]);
     },
     [qc]
   );

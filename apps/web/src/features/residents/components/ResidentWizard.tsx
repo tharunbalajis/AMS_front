@@ -3,7 +3,7 @@ import { Button, Card, Input, Select } from "@ams/ui";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { UserCheck, UserCog, Check, Loader2 } from "lucide-react";
 import { toast } from "sonner";
-import { residentsApi } from "@/api/residents.api";
+import { residentsApi, ParkingSlot } from "@/api/residents.api";
 import { useDynamicBlocks } from "@/hooks/useDynamicBlocks";
 import { useDynamicUnits } from "@/hooks/useDynamicUnits";
 import { useFilterReset } from "@/hooks/useFilterReset";
@@ -43,7 +43,7 @@ export default function ResidentWizard({ societyId, onClose }: { societyId: numb
   const [moveOutDate, setMoveOutDate] = useState("");
   const [monthlyRent, setMonthlyRent] = useState("");
   const [securityDeposit, setSecurityDeposit] = useState("");
-  const [leaseUrl, setLeaseUrl] = useState("");
+  const [leaseFile, setLeaseFile] = useState<File | null>(null);
 
   // Pets & vehicles
   const [pets, setPets] = useState<Array<{ name: string; type: string; breed?: string; age?: string }>>([]);
@@ -69,23 +69,18 @@ export default function ResidentWizard({ societyId, onClose }: { societyId: numb
     ? inactiveOwnersQ.data
     : ((inactiveOwnersQ.data as any)?.data ?? []);
 
-  // Parking slots per unit - cached map
-  const [parkingOptions, setParkingOptions] = useState<Record<string, string[]>>({});
-  const fetchParkingForUnit = async (unitId: string) => {
-    const id = Number(unitId);
-    if (!id) return [] as string[];
-    if (parkingOptions[unitId]) return parkingOptions[unitId];
+  // Real parking slots from API, cached per society
+  const [parkingSlots, setParkingSlots] = useState<ParkingSlot[]>([]);
+  const [parkingLoaded, setParkingLoaded] = useState(false);
+  const fetchParkingSlots = async () => {
+    if (parkingLoaded) return;
     try {
-      const res = await residentsApi.getParkingSlots(id, societyId);
-      const data = (res && (res as any).data) ?? res;
-      const slots = (data?.parking_slots as string[] | undefined) ?? (data?.parking_slots_list as string[] | undefined);
-      if (Array.isArray(slots)) { setParkingOptions(s => ({ ...s, [unitId]: slots })); return slots; }
-      const count = Number(data?.parking_slots_count ?? data?.parking_slots ?? 0);
-      const calc = Array.from({ length: Math.max(0, count) }).map((_, i) => `P-${String(i + 1).padStart(2, "0")}`);
-      setParkingOptions(s => ({ ...s, [unitId]: calc }));
-      return calc;
+      const res = await residentsApi.getParkingSlots(0, societyId);
+      const slots: ParkingSlot[] = Array.isArray((res as any)?.data) ? (res as any).data : [];
+      setParkingSlots(slots);
+      setParkingLoaded(true);
     } catch {
-      return [];
+      setParkingSlots([]);
     }
   };
 
@@ -165,7 +160,8 @@ export default function ResidentWizard({ societyId, onClose }: { societyId: numb
       const newResident = (res && (res as any).data) ?? res;
       const residentId = String(newResident?.id ?? newResident?.resident_id ?? "");
       if (moveInDate) {
-        await residentsApi.createLease({ resident_id: residentId, tenant_resident_id: residentId, owner_resident_id: selectedOwnerId || null, move_in_date: moveInDate, move_out_date: moveOutDate || null, monthly_rent: monthlyRent || null, security_deposit: securityDeposit || null, lease_url: leaseUrl || null, society_id: societyId });
+        // TODO: upload leaseFile to storage and replace "pending_upload" with real URL
+        await residentsApi.createLease({ resident_id: residentId, tenant_resident_id: residentId, owner_resident_id: selectedOwnerId || null, lease_start: moveInDate, lease_end: moveOutDate || null, rent_monthly: monthlyRent ? Number(monthlyRent) : null, security_deposit: securityDeposit ? Number(securityDeposit) : null, lease_url: leaseFile ? 'pending_upload' : null, society_id: societyId });
       }
       for (const p of pets) {
         await residentsApi.addPet({ resident_id: residentId, pet_name: p.name, species: p.type, breed: p.breed || null, age: p.age || null, society_id: societyId });
@@ -402,8 +398,18 @@ export default function ResidentWizard({ societyId, onClose }: { societyId: numb
                 </div>
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700">Lease URL</label>
-                <Input value={leaseUrl} onChange={(e: any) => setLeaseUrl(e.target.value)} />
+                <label className="block text-sm font-medium text-gray-700">
+                  Lease Agreement (PDF/Image)
+                </label>
+                <input
+                  type="file"
+                  accept=".pdf,.jpg,.jpeg,.png"
+                  onChange={(e) => setLeaseFile(e.target.files?.[0] ?? null)}
+                  className="block w-full text-sm border border-gray-200 rounded px-3 py-2"
+                />
+                {leaseFile && (
+                  <p className="text-xs text-green-600 mt-1">&#10003; {leaseFile.name}</p>
+                )}
               </div>
             </div>
           )}
@@ -446,10 +452,14 @@ export default function ResidentWizard({ societyId, onClose }: { societyId: numb
                   <Select
                     value={v.parking_slot || ""}
                     onChange={(e: any) => setVehicles(prev => prev.map((x, i) => i === idx ? { ...x, parking_slot: e.target.value } : x))}
-                    onFocus={async () => { if (selectedUnit) await fetchParkingForUnit(selectedUnit); }}
+                    onFocus={fetchParkingSlots}
                   >
                     <option value="">Select parking</option>
-                    {(parkingOptions[selectedUnit] ?? []).map(p => <option key={p} value={p}>{p}</option>)}
+                    {parkingSlots.map(p => (
+                      <option key={p.parking_slot_id} value={p.parking_slot_id}>
+                        {p.slot_code} ({p.slot_type})
+                      </option>
+                    ))}
                   </Select>
                   <div className="col-span-3 text-right">
                     <button className="text-sm text-red-600" onClick={() => setVehicles(prev => prev.filter((_, i) => i !== idx))}>Remove</button>

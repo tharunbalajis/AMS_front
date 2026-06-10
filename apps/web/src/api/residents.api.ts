@@ -68,6 +68,13 @@ export interface Unit {
   tenant_name: string | null;
 }
 
+export interface ParkingSlot {
+  parking_slot_id: string;
+  slot_code: string;
+  slot_type: string;
+  parking_status: string;
+}
+
 export interface Block {
   block_id: number;
   block_name: string;
@@ -297,21 +304,16 @@ export const residentsApi = {
 
     const response =
       await http.get(
-        `/units/${unitId}`,
+        '/residents/parking-slots',
         {
-          params:
-            societyId
-              ? {
-                  society_id:
-                    societyId
-                }
-              : {},
+          params: {
+            society_id: societyId,
+          },
         }
       );
 
-    return extractData<Unit>(
-      response
-    );
+    // Return raw body so callers can read .data array
+    return response.data;
   },
 
   /* -------------------------------------------------- */

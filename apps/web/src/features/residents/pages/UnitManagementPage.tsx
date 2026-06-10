@@ -676,8 +676,8 @@ export function UnitManagementPage() {
             Owner Occupied
           </option>
 
-          <option value="RENTED">
-            Rented
+          <option value="TENANT_OCCUPIED">
+            Tenant Occupied
           </option>
 
           <option value="VACANT">
@@ -827,11 +827,9 @@ export function UnitManagementPage() {
                   );
 
                 const cls =
-                  s ===
-                  "RENTED"
+                  s === "TENANT_OCCUPIED" || s === "RENTED"
                     ? "bg-blue-100 text-blue-800"
-                    : s ===
-                      "OWNER_OCCUPIED"
+                    : s === "OWNER_OCCUPIED"
                     ? "bg-green-100 text-green-800"
                     : "bg-gray-100 text-gray-700";
 

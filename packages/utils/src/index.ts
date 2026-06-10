@@ -162,7 +162,7 @@ export const http =
     timeout: 30000,
 
     withCredentials:
-      false,
+      true,
 
     headers: {
       "Content-Type":
