@@ -76,9 +76,26 @@ export function VisitorCheckInPage() {
         <Card className="p-6 flex flex-col items-center gap-4">
           <h2 className="font-semibold text-gray-900">Visitor QR Code</h2>
           <p className="text-sm text-gray-500">{String(createdVisitor.visitor_name ?? "")}</p>
-          <div className="bg-white p-3 rounded border">
+          <div className="visitor-qr-code bg-white p-3 rounded border">
             <QRCode value={String(createdVisitor.qr_token ?? createdVisitor.id ?? "")} size={200} />
           </div>
+          <button
+            onClick={() => {
+              const svg = document.querySelector(".visitor-qr-code svg");
+              if (!svg) return;
+              const svgData = new XMLSerializer().serializeToString(svg);
+              const blob = new Blob([svgData], { type: "image/svg+xml" });
+              const url = URL.createObjectURL(blob);
+              const a = document.createElement("a");
+              a.href = url;
+              a.download = `visitor-qr-${String(createdVisitor.id ?? "pass")}.svg`;
+              a.click();
+              URL.revokeObjectURL(url);
+            }}
+            className="text-sm text-blue-600 hover:underline"
+          >
+            Download QR
+          </button>
           <p className="text-xs text-gray-400 text-center">Show this to the guard for entry</p>
           <button onClick={() => setCreatedVisitor(null)} className="text-sm text-gray-500 hover:text-gray-700 underline">
             Dismiss

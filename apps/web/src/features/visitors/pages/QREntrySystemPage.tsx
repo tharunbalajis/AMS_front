@@ -1,15 +1,22 @@
 import { Button, Card, DataTable, Input, StatusBadge } from "@ams/ui";
 import { normalizeList } from "@ams/utils";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { QrCode } from "lucide-react";
-import { useState } from "react";
+import { useRef, useState } from "react";
+import { toast } from "sonner";
 import { visitorsApi } from "@/api/visitors.api";
 import { useScope } from "@/app/scope/ScopeProvider";
 
 export function QREntrySystemPage() {
   const { queryParams } = useScope();
+  const qc = useQueryClient();
   const [passId, setPassId] = useState("");
   const [verified, setVerified] = useState<Record<string, unknown> | null>(null);
+  const [isScanning, setIsScanning] = useState(false);
+  const [scanResult, setScanResult] = useState<{ visitor_id: string; valid: boolean } | null>(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const animFrameRef = useRef<number>(0);
 
   const { data: raw, isLoading } = useQuery({
     queryKey: ["visitor-passes-qr", queryParams],
@@ -20,9 +27,68 @@ export function QREntrySystemPage() {
     (raw as any)?.data?.data?.data ?? (raw as any)?.data?.data ?? raw?.data ?? raw
   );
 
+  const checkInMut = useMutation({
+    mutationFn: (visitorId: string) => visitorsApi.checkIn(visitorId, {}),
+    onSuccess: () => {
+      toast.success("Visitor checked in via QR!");
+      qc.invalidateQueries({ queryKey: ["guard-visitors"] });
+      qc.invalidateQueries({ queryKey: ["visitors-logs"] });
+      setScanResult(null);
+    },
+    onError: () => toast.error("Check-in failed"),
+  });
+
+  const stopCamera = () => {
+    if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current);
+    if (videoRef.current?.srcObject) {
+      (videoRef.current.srcObject as MediaStream).getTracks().forEach((t) => t.stop());
+      videoRef.current.srcObject = null;
+    }
+    setIsScanning(false);
+  };
+
+  const scanFrame = async () => {
+    if (!videoRef.current || !canvasRef.current) return;
+    const ctx = canvasRef.current.getContext("2d");
+    if (!ctx) return;
+    ctx.drawImage(videoRef.current, 0, 0, 300, 300);
+    const imgData = ctx.getImageData(0, 0, 300, 300);
+    try {
+      const jsQR = (await import("jsqr")).default;
+      const code = jsQR(imgData.data, imgData.width, imgData.height);
+      if (code?.data) {
+        const decoded = visitorsApi.verifyQrToken(code.data);
+        if (decoded) {
+          stopCamera();
+          setScanResult({ visitor_id: decoded.visitor_id, valid: true });
+          return;
+        }
+      }
+    } catch {
+      // jsqr may not be installed; fall through to next frame
+    }
+    animFrameRef.current = requestAnimationFrame(scanFrame);
+  };
+
+  const startCamera = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+        videoRef.current.play();
+        setIsScanning(true);
+        animFrameRef.current = requestAnimationFrame(scanFrame);
+      }
+    } catch {
+      toast.error("Camera access denied");
+    }
+  };
+
   const handleVerify = () => {
     const found = passes.find(
-      (p) => String(p.id ?? "").includes(passId) || String(p.visitor_name ?? "").toLowerCase().includes(passId.toLowerCase())
+      (p) =>
+        String(p.id ?? "").toLowerCase().includes(passId.toLowerCase()) ||
+        String(p.visitor_name ?? "").toLowerCase().includes(passId.toLowerCase())
     );
     setVerified(found ?? null);
   };
@@ -38,17 +104,41 @@ export function QREntrySystemPage() {
       <div className="grid gap-6 xl:grid-cols-2">
         <Card className="flex flex-col items-center justify-center p-8 text-center">
           <h2 className="mb-4 text-base font-semibold text-gray-900">QR Scanner</h2>
-          <div className="relative flex h-56 w-56 items-center justify-center rounded-xl bg-gray-50">
-            <div className="absolute left-2 top-2 h-6 w-6 border-l-2 border-t-2 border-blue-600 rounded-tl" />
-            <div className="absolute right-2 top-2 h-6 w-6 border-r-2 border-t-2 border-blue-600 rounded-tr" />
-            <div className="absolute bottom-2 left-2 h-6 w-6 border-b-2 border-l-2 border-blue-600 rounded-bl" />
-            <div className="absolute bottom-2 right-2 h-6 w-6 border-b-2 border-r-2 border-blue-600 rounded-br" />
-            <div className="text-center text-gray-300">
-              <QrCode size={80} />
-              <p className="mt-2 text-xs text-gray-400">Point camera at QR code</p>
-            </div>
+          <div className="relative flex h-56 w-56 items-center justify-center rounded-xl bg-gray-50 overflow-hidden">
+            <div className="absolute left-2 top-2 h-6 w-6 border-l-2 border-t-2 border-blue-600 rounded-tl z-10" />
+            <div className="absolute right-2 top-2 h-6 w-6 border-r-2 border-t-2 border-blue-600 rounded-tr z-10" />
+            <div className="absolute bottom-2 left-2 h-6 w-6 border-b-2 border-l-2 border-blue-600 rounded-bl z-10" />
+            <div className="absolute bottom-2 right-2 h-6 w-6 border-b-2 border-r-2 border-blue-600 rounded-br z-10" />
+            {isScanning ? (
+              <video ref={videoRef} className="h-56 w-56 rounded-xl object-cover" playsInline muted />
+            ) : (
+              <div className="text-center text-gray-300">
+                <QrCode size={80} />
+                <p className="mt-2 text-xs text-gray-400">Point camera at QR code</p>
+              </div>
+            )}
           </div>
-          <Button className="mt-5"><QrCode size={15} className="mr-1" />Start Scanner</Button>
+          <canvas ref={canvasRef} width={300} height={300} className="hidden" />
+
+          {scanResult ? (
+            <div className="mt-4 w-full space-y-3">
+              <p className="text-sm font-medium text-green-700">QR decoded — Visitor ID: {scanResult.visitor_id}</p>
+              <Button
+                className="w-full bg-green-600 hover:bg-green-700 text-white"
+                disabled={checkInMut.isPending}
+                onClick={() => checkInMut.mutate(scanResult.visitor_id)}
+              >
+                {checkInMut.isPending ? "Checking in..." : "Confirm Check-In"}
+              </Button>
+              <Button variant="secondary" className="w-full" onClick={() => setScanResult(null)}>
+                Cancel
+              </Button>
+            </div>
+          ) : (
+            <Button className="mt-5" onClick={isScanning ? stopCamera : startCamera}>
+              <QrCode size={15} className="mr-1" />{isScanning ? "Stop Scanner" : "Start Scanner"}
+            </Button>
+          )}
         </Card>
 
         <Card className="p-6">

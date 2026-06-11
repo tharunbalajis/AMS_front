@@ -1,8 +1,9 @@
 import { Button, DataTable, Select, StatusBadge } from "@ams/ui";
 import { normalizeList } from "@ams/utils";
-import { useQuery } from "@tanstack/react-query";
-import { Download } from "lucide-react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { Download, Upload } from "lucide-react";
 import { useState } from "react";
+import { toast } from "sonner";
 import { visitorsApi } from "@/api/visitors.api";
 import { useScope } from "@/app/scope/ScopeProvider";
 
@@ -18,12 +19,23 @@ const TYPE_COLORS: Record<string, string> = {
 
 export function VisitorLogsPage() {
   const { queryParams } = useScope();
+  const qc = useQueryClient();
   const [type, setType] = useState("");
   const [status, setStatus] = useState("");
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
 
   const { data: raw, isLoading } = useQuery({
-    queryKey: ["visitors-logs", queryParams, type, status],
-    queryFn: () => visitorsApi.getAll({ ...queryParams, visitor_type: type || undefined, status: status || undefined, page: 1, page_size: 100 }),
+    queryKey: ["visitors-logs", queryParams, type, status, dateFrom, dateTo],
+    queryFn: () => visitorsApi.getAll({
+      ...queryParams,
+      visitor_type: type || undefined,
+      status: status || undefined,
+      date_from: dateFrom || undefined,
+      date_to: dateTo || undefined,
+      page: 1,
+      page_size: 100,
+    }),
     retry: false,
   });
 
@@ -33,6 +45,56 @@ export function VisitorLogsPage() {
   if (type) rows = rows.filter((r) => String(r.visitor_type ?? "") === type);
   if (status) rows = rows.filter((r) => String(r.status ?? "") === status);
 
+  const handleExport = () => {
+    if (!rows.length) { toast.error("No data to export"); return; }
+    const headers = ["visitor_name", "visitor_type", "unit_number", "purpose", "check_in_at", "check_out_at", "status"];
+    const csv = [
+      headers.join(","),
+      ...rows.map((r) => headers.map((h) => `"${String(r[h] ?? "")}"`).join(",")),
+    ].join("\n");
+    const blob = new Blob([csv], { type: "text/csv" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "visitors_export.csv";
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const handleImport = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = async (ev) => {
+      const text = ev.target?.result as string;
+      const lines = text.trim().split("\n");
+      const headers = lines[0].split(",").map((h) => h.replace(/"/g, "").trim());
+      let success = 0, failed = 0;
+      for (const line of lines.slice(1)) {
+        const values = line.split(",").map((v) => v.replace(/"/g, "").trim());
+        const row: Record<string, string> = {};
+        headers.forEach((h, i) => (row[h] = values[i] ?? ""));
+        try {
+          await visitorsApi.createVisitor({
+            society_id: queryParams.society_id,
+            visitor_name: row.visitor_name,
+            visitor_type: row.visitor_type || "WALK_IN",
+            visitor_mobile: row.visitor_mobile || undefined,
+            purpose: row.purpose || undefined,
+            vehicle_number: row.vehicle_number || undefined,
+          });
+          success++;
+        } catch {
+          failed++;
+        }
+      }
+      toast.success(`Imported ${success} visitors${failed ? `, ${failed} failed` : ""}`);
+      qc.invalidateQueries({ queryKey: ["visitors-logs"] });
+    };
+    reader.readAsText(file);
+    e.target.value = "";
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex items-start justify-between gap-4">
@@ -41,7 +103,17 @@ export function VisitorLogsPage() {
           <h1 className="text-2xl font-bold text-gray-900">Visitor Logs</h1>
           <p className="mt-1 text-sm text-gray-500">{rows.length} visitor entries</p>
         </div>
-        <Button variant="secondary"><Download size={15} className="mr-1" />Export</Button>
+        <div className="flex gap-2">
+          <label className="cursor-pointer">
+            <input type="file" accept=".csv" className="hidden" onChange={handleImport} />
+            <Button variant="secondary" asChild>
+              <span><Upload size={15} className="mr-1" />Import</span>
+            </Button>
+          </label>
+          <Button variant="secondary" onClick={handleExport}>
+            <Download size={15} className="mr-1" />Export
+          </Button>
+        </div>
       </div>
 
       <div className="flex flex-wrap gap-3">
@@ -62,7 +134,18 @@ export function VisitorLogsPage() {
           <option value="REJECTED">Rejected</option>
           <option value="EXPIRED">Expired</option>
         </Select>
-        <input type="date" className="h-10 rounded-md border border-gray-200 px-3 text-sm outline-none focus:border-blue-400" />
+        <input
+          type="date"
+          className="h-10 rounded-md border border-gray-200 px-3 text-sm outline-none focus:border-blue-400"
+          value={dateFrom}
+          onChange={(e) => setDateFrom(e.target.value)}
+        />
+        <input
+          type="date"
+          className="h-10 rounded-md border border-gray-200 px-3 text-sm outline-none focus:border-blue-400"
+          value={dateTo}
+          onChange={(e) => setDateTo(e.target.value)}
+        />
       </div>
 
       <DataTable
@@ -83,7 +166,6 @@ export function VisitorLogsPage() {
           { key: "purpose", header: "PURPOSE" },
           { key: "check_in_at", header: "CHECK-IN" },
           { key: "check_out_at", header: "CHECK-OUT", render: (row) => <span>{String(row.check_out_at ?? "—")}</span> },
-          { key: "mode", header: "MODE" },
           { key: "status", header: "STATUS", render: (row) => <StatusBadge value={row.status} /> },
         ]}
       />

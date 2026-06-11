@@ -3,12 +3,21 @@ import { normalizeList } from "@ams/utils";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Loader2, Plus, QrCode, X } from "lucide-react";
 import { useState } from "react";
+import QRCode from "react-qr-code";
 import { toast } from "sonner";
 import { visitorsApi } from "@/api/visitors.api";
 import { residentsApi } from "@/api/residents.api";
 import { useScope } from "@/app/scope/ScopeProvider";
 
-function AddPassModal({ societyId, onClose }: { societyId: number; onClose: () => void }) {
+function AddPassModal({
+  societyId,
+  onClose,
+  onCreated,
+}: {
+  societyId: number;
+  onClose: () => void;
+  onCreated: (pass: Record<string, unknown>) => void;
+}) {
   const qc = useQueryClient();
   const [form, setForm] = useState({
     resident_id: "", unit_id: "", visitor_name: "", visitor_mobile: "",
@@ -31,10 +40,15 @@ function AddPassModal({ societyId, onClose }: { societyId: number; onClose: () =
       valid_until:    form.valid_until,
       pass_purpose:   form.pass_purpose.trim() || null,
     }),
-    onSuccess: () => {
+    onSuccess: (res: any) => {
+      const pass = res?.data?.data ?? res?.data ?? res;
       toast.success("Guest pass created");
       qc.invalidateQueries({ queryKey: ["guest-passes"] });
-      onClose();
+      if (pass?.qr_token) {
+        onCreated(pass);
+      } else {
+        onClose();
+      }
     },
     onError: (e: unknown) => toast.error((e as Error)?.message ?? "Failed to create pass"),
   });
@@ -111,10 +125,52 @@ function AddPassModal({ societyId, onClose }: { societyId: number; onClose: () =
   );
 }
 
+function PassQrModal({ pass, onClose }: { pass: Record<string, unknown>; onClose: () => void }) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+      <div className="w-full max-w-sm rounded-2xl bg-white shadow-2xl">
+        <div className="flex items-center justify-between border-b px-6 py-4">
+          <h2 className="font-semibold text-gray-900">Guest Pass QR Code</h2>
+          <button type="button" onClick={onClose} className="rounded-lg p-1.5 hover:bg-gray-100"><X size={18} /></button>
+        </div>
+        <div className="flex flex-col items-center gap-4 p-6">
+          <p className="text-sm text-gray-600">{String(pass.visitor_name ?? "")}</p>
+          <div className="pass-qr-code bg-white p-3 rounded border">
+            <QRCode value={String(pass.qr_token ?? pass.id ?? "")} size={180} />
+          </div>
+          <button
+            onClick={() => {
+              const svg = document.querySelector(".pass-qr-code svg");
+              if (!svg) return;
+              const svgData = new XMLSerializer().serializeToString(svg);
+              const blob = new Blob([svgData], { type: "image/svg+xml" });
+              const url = URL.createObjectURL(blob);
+              const a = document.createElement("a");
+              a.href = url;
+              a.download = `pass-qr-${String(pass.id ?? "pass")}.svg`;
+              a.click();
+              URL.revokeObjectURL(url);
+            }}
+            className="text-sm text-blue-600 hover:underline"
+          >
+            Download QR
+          </button>
+          <p className="text-xs text-gray-400 text-center">Share this QR with the visitor for gate entry</p>
+          <button type="button" onClick={onClose}
+            className="rounded-lg border border-gray-200 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 w-full">
+            Close
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function GuestPassesPage() {
   const { queryParams, society } = useScope();
   const [search, setSearch] = useState("");
   const [addOpen, setAddOpen] = useState(false);
+  const [createdPass, setCreatedPass] = useState<Record<string, unknown> | null>(null);
 
   const { data: raw, isLoading } = useQuery({
     queryKey: ["guest-passes", queryParams],
@@ -173,7 +229,12 @@ export function GuestPassesPage() {
         <AddPassModal
           societyId={Number(society?.society_id ?? queryParams.society_id ?? 1)}
           onClose={() => setAddOpen(false)}
+          onCreated={(pass) => { setAddOpen(false); setCreatedPass(pass); }}
         />
+      )}
+
+      {createdPass && (
+        <PassQrModal pass={createdPass} onClose={() => setCreatedPass(null)} />
       )}
     </div>
   );

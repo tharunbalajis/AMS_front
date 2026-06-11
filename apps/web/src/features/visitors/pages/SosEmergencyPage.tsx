@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { AlertTriangle, CheckCircle, Loader2 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
+import { residentsApi } from "@/api/residents.api";
 import { visitorsApi } from "@/api/visitors.api";
 import { useScope } from "@/app/scope/ScopeProvider";
 
@@ -57,6 +58,14 @@ export function SosEmergencyPage() {
   const { queryParams } = useScope();
   const qc = useQueryClient();
   const [resolveId, setResolveId] = useState<string | null>(null);
+  const [showForm, setShowForm] = useState(false);
+  const [sosForm, setSosForm] = useState({
+    alert_type: "GENERAL",
+    unit_id: "",
+    description: "",
+    latitude: "",
+    longitude: "",
+  });
 
   const { data: raw, isLoading } = useQuery({
     queryKey: ["sos-alerts", queryParams],
@@ -69,6 +78,13 @@ export function SosEmergencyPage() {
   const activeAlerts = alerts.filter((a) => String(a.status ?? "").toUpperCase() !== "RESOLVED");
   const pastAlerts   = alerts.filter((a) => String(a.status ?? "").toUpperCase() === "RESOLVED");
 
+  const unitsQuery = useQuery({
+    queryKey: ["units-sos", queryParams.society_id],
+    queryFn: () => residentsApi.getUnits({ society_id: queryParams.society_id, page: 1, page_size: 300 }),
+    enabled: Boolean(queryParams.society_id),
+  });
+  const units = normalizeList<Record<string, unknown>>(unitsQuery.data?.data ?? unitsQuery.data);
+
   const ackMut = useMutation({
     mutationFn: (id: string) => visitorsApi.acknowledgeSos(id),
     onSuccess: () => {
@@ -78,6 +94,24 @@ export function SosEmergencyPage() {
     onError: () => toast.error("Failed to acknowledge"),
   });
 
+  const sosMut = useMutation({
+    mutationFn: () =>
+      visitorsApi.createSosAlert({
+        alert_type: sosForm.alert_type,
+        unit_id: sosForm.unit_id ? Number(sosForm.unit_id) : undefined,
+        description: sosForm.description.trim() || undefined,
+        latitude: sosForm.latitude ? Number(sosForm.latitude) : undefined,
+        longitude: sosForm.longitude ? Number(sosForm.longitude) : undefined,
+      }),
+    onSuccess: () => {
+      toast.success("SOS alert raised!");
+      qc.invalidateQueries({ queryKey: ["sos-alerts"] });
+      setShowForm(false);
+      setSosForm({ alert_type: "GENERAL", unit_id: "", description: "", latitude: "", longitude: "" });
+    },
+    onError: () => toast.error("Failed to raise SOS alert"),
+  });
+
   return (
     <div className="space-y-6">
       <div>
@@ -85,6 +119,94 @@ export function SosEmergencyPage() {
         <h1 className="text-2xl font-bold text-gray-900">SOS / Emergency</h1>
         <p className="mt-1 text-sm text-gray-500">Monitor and respond to emergency alerts</p>
       </div>
+
+      <Card className="p-5">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="font-semibold text-gray-900">Raise SOS Alert</h2>
+          <Button variant="secondary" onClick={() => setShowForm((v) => !v)}>
+            {showForm ? "Cancel" : <><AlertTriangle size={14} className="mr-1" />Raise Alert</>}
+          </Button>
+        </div>
+
+        {showForm && (
+          <div className="space-y-4">
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div>
+                <label className="mb-1 block text-sm font-medium text-gray-700">Alert Type *</label>
+                <select
+                  value={sosForm.alert_type}
+                  onChange={(e) => setSosForm((f) => ({ ...f, alert_type: e.target.value }))}
+                  className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm outline-none focus:border-red-500"
+                >
+                  <option value="GENERAL">General Emergency</option>
+                  <option value="FIRE">Fire</option>
+                  <option value="MEDICAL">Medical</option>
+                  <option value="INTRUDER">Intruder</option>
+                </select>
+              </div>
+              <div>
+                <label className="mb-1 block text-sm font-medium text-gray-700">Unit (optional)</label>
+                <select
+                  value={sosForm.unit_id}
+                  onChange={(e) => setSosForm((f) => ({ ...f, unit_id: e.target.value }))}
+                  className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm outline-none focus:border-red-500"
+                >
+                  <option value="">Select unit</option>
+                  {units.map((u) => (
+                    <option key={String(u.unit_id ?? u.id)} value={String(u.unit_id ?? u.id)}>
+                      {String(u.unit_number ?? "-")} {u.block_name ? `- ${u.block_name}` : ""}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+            <div>
+              <label className="mb-1 block text-sm font-medium text-gray-700">Description</label>
+              <textarea
+                rows={2}
+                value={sosForm.description}
+                onChange={(e) => setSosForm((f) => ({ ...f, description: e.target.value }))}
+                placeholder="Briefly describe the emergency..."
+                className="w-full resize-none rounded-lg border border-gray-200 px-3 py-2 text-sm outline-none focus:border-red-500"
+              />
+            </div>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div>
+                <label className="mb-1 block text-sm font-medium text-gray-700">Latitude (optional)</label>
+                <input
+                  type="number"
+                  step="any"
+                  value={sosForm.latitude}
+                  onChange={(e) => setSosForm((f) => ({ ...f, latitude: e.target.value }))}
+                  placeholder="e.g. 17.3850"
+                  className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm outline-none focus:border-red-500"
+                />
+              </div>
+              <div>
+                <label className="mb-1 block text-sm font-medium text-gray-700">Longitude (optional)</label>
+                <input
+                  type="number"
+                  step="any"
+                  value={sosForm.longitude}
+                  onChange={(e) => setSosForm((f) => ({ ...f, longitude: e.target.value }))}
+                  placeholder="e.g. 78.4867"
+                  className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm outline-none focus:border-red-500"
+                />
+              </div>
+            </div>
+            <Button
+              className="w-full bg-red-600 hover:bg-red-700 text-white"
+              disabled={sosMut.isPending}
+              onClick={() => sosMut.mutate()}
+            >
+              {sosMut.isPending
+                ? <Loader2 size={14} className="mr-1 animate-spin" />
+                : <AlertTriangle size={14} className="mr-1" />}
+              Confirm SOS Alert
+            </Button>
+          </div>
+        )}
+      </Card>
 
       {!isLoading && activeAlerts.length === 0 && (
         <Card className="border-green-200 bg-green-50 p-5">

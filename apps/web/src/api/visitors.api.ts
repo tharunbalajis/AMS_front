@@ -36,4 +36,17 @@ export const visitorsApi = {
 
   // Dashboard
   getDashboard: (params?: Record<string, unknown>) => http.get("/visitors/dashboard", { params }),
+
+  // Client-side QR token decoder (no backend round-trip needed)
+  verifyQrToken: (qrToken: string): { visitor_id: string; society_id: number; unit_id: number | null } | null => {
+    try {
+      const [, payloadB64] = qrToken.split(".");
+      const payload = JSON.parse(atob(payloadB64.replace(/-/g, "+").replace(/_/g, "/")));
+      const now = Math.floor(Date.now() / 1000);
+      if (payload.exp && payload.exp < now) return null;
+      return { visitor_id: payload.visitor_id, society_id: payload.society_id, unit_id: payload.unit_id };
+    } catch {
+      return null;
+    }
+  },
 };
