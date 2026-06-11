@@ -106,12 +106,21 @@ export const residentsExtApi = {
 export type DashboardStats = {
   total_units: number;
   occupied_units: number;
+  vacant_units: number;
   occupancy_pct: number;
   total_residents: number;
+  total_owners: number;
+  total_tenants: number;
+  total_members: number;
+  total_occupants: number;
+  active_leases: number;
+  parking_occupied: number;
   open_complaints: number;
   pending_payments: number;
   visitors_today: number;
   active_staff: number;
+  blocks_count: number;
+  avg_occupancy_per_unit: number;
 };
 
 export const dashboardApi = {
