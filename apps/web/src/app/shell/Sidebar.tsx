@@ -1,5 +1,6 @@
 import { hasPermission, type Permission } from "@ams/permissions";
 import {
+  AlertTriangle,
   Armchair,
   BadgeDollarSign,
   BellRing,
@@ -14,6 +15,8 @@ import {
   LogOut,
   Megaphone,
   MessageSquare,
+  QrCode,
+  ScanLine,
   Settings,
   Shield,
   Siren,
@@ -82,7 +85,12 @@ const groups: NavGroup[] = [
       { label: "Delivery Tracking", to: "/visitors/deliveries", permission: "visitors" },
       { label: "Staff Attendance", to: "/visitors/attendance", permission: "visitors" },
       { label: "SOS / Emergency", to: "/visitors/sos", permission: "visitors" },
-      { label: "Guest Passes", to: "/visitors/passes", permission: "visitors" }
+      { label: "Guest Passes", to: "/visitors/passes", permission: "visitors" },
+      { label: "Patrol Dashboard", to: "/visitors/patrol", permission: "visitors" },
+      { label: "Patrol QR Points", to: "/visitors/patrol/qr", permission: "visitors" },
+      { label: "Patrol Scan", to: "/visitors/patrol/scan", permission: "visitors" },
+      { label: "Patrol History", to: "/visitors/patrol/history", permission: "visitors" },
+      { label: "Fraud Flags", to: "/visitors/patrol/fraud", permission: "visitors" }
     ]
   },
   {

@@ -23,18 +23,25 @@ export function SecurityDashboardPage() {
     retry: false,
   });
 
+  const { data: dashRaw } = useQuery({
+    queryKey: ["visitors-dashboard", queryParams],
+    queryFn: () => visitorsApi.getDashboard({ society_id: queryParams.society_id }),
+    retry: false,
+  });
+  const dashCounts = (dashRaw as any)?.data?.counts ?? {};
+
   const visitors = normalizeList<Record<string, unknown>>(raw?.data ?? raw);
   const totalToday = visitors.length;
   const inside = visitors.filter((v) => String(v.status ?? "").toUpperCase() === "CHECKED_IN").length;
   const deliveries = visitors.filter((v) => String(v.visitor_type ?? "").toUpperCase() === "DELIVERY").length;
-  const liveVisitors = visitors.filter((v) => String(v.status ?? "").toUpperCase() === "INSIDE").slice(0, 8);
+  const liveVisitors = visitors.filter((v) => String(v.status ?? "").toUpperCase() === "CHECKED_IN").slice(0, 8);
   const rows = liveVisitors;
 
   const kpis = [
     { label: "Today's Visitors", value: totalToday, icon: Users, color: "bg-blue-100 text-blue-700" },
     { label: "Currently Inside", value: inside, icon: Shield, color: "bg-green-100 text-green-700" },
     { label: "Deliveries Today", value: deliveries, icon: Package, color: "bg-amber-100 text-amber-700" },
-    { label: "SOS Alerts", value: 1, icon: AlertTriangle, color: "bg-red-100 text-red-700" },
+    { label: "SOS Alerts", value: dashCounts.active_sos_count ?? 0, icon: AlertTriangle, color: "bg-red-100 text-red-700" },
   ];
 
   return (

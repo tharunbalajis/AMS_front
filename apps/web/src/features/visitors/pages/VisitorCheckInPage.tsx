@@ -3,21 +3,22 @@ import { normalizeList } from "@ams/utils";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Camera, Loader2, UserCheck } from "lucide-react";
 import { useState } from "react";
+import QRCode from "react-qr-code";
 import { toast } from "sonner";
-import { visitorsApi } from "@/api/visitors.api";
 import { residentsApi } from "@/api/residents.api";
+import { visitorsApi } from "@/api/visitors.api";
 import { useScope } from "@/app/scope/ScopeProvider";
 
 export function VisitorCheckInPage() {
   const { queryParams, society } = useScope();
   const qc = useQueryClient();
-
-  const [name, setName]       = useState("");
-  const [mobile, setMobile]   = useState("");
-  const [unitId, setUnitId]   = useState("");
-  const [type, setType]       = useState("GUEST");
+  const [name, setName] = useState("");
+  const [mobile, setMobile] = useState("");
+  const [unitId, setUnitId] = useState("");
+  const [type, setType] = useState("WALK_IN");
   const [purpose, setPurpose] = useState("");
   const [vehicle, setVehicle] = useState("");
+  const [createdVisitor, setCreatedVisitor] = useState<Record<string, unknown> | null>(null);
 
   const unitsQuery = useQuery({
     queryKey: ["units-checkin", queryParams.society_id],
@@ -29,25 +30,30 @@ export function VisitorCheckInPage() {
 
   const mutation = useMutation({
     mutationFn: () =>
-      visitorsApi.checkIn({
-        society_id:     queryParams.society_id ?? society?.society_id ?? 1,
-        unit_id:        Number(unitId),
-        visitor_name:   name.trim(),
-        visitor_mobile: mobile.trim(),
-        visitor_type:   type,
-        purpose:        purpose.trim() || null,
-        vehicle_number: vehicle.trim() || null,
-        check_in_at:    new Date().toISOString(),
+      visitorsApi.createVisitor({
+        society_id: queryParams.society_id ?? society?.society_id ?? 1,
+        unit_id: Number(unitId) || undefined,
+        visitor_name: name.trim(),
+        visitor_mobile: mobile.trim() || undefined,
+        visitor_type: type,
+        purpose: purpose.trim() || undefined,
+        vehicle_number: vehicle.trim() || undefined,
       }),
-    onSuccess: () => {
-      toast.success("Visitor checked in successfully");
+    onSuccess: (res: any) => {
+      const visitor = res?.data ?? res;
+      toast.success("Visitor registered successfully");
+      setCreatedVisitor(visitor);
       qc.invalidateQueries({ queryKey: ["visitors"] });
-      setName(""); setMobile(""); setUnitId(""); setPurpose(""); setVehicle(""); setType("GUEST");
+      qc.invalidateQueries({ queryKey: ["visitors-logs"] });
+      qc.invalidateQueries({ queryKey: ["guard-visitors"] });
+      qc.invalidateQueries({ queryKey: ["visitors-security"] });
+      setName(""); setMobile(""); setUnitId(""); setPurpose(""); setVehicle(""); setType("WALK_IN");
     },
     onError: (e: unknown) => {
-      const msg = (e as { response?: { data?: { message?: string } } })?.response?.data?.message
-        ?? (e as Error)?.message
-        ?? "Check-in failed";
+      const msg =
+        (e as { response?: { data?: { message?: string } } })?.response?.data?.message ??
+        (e as Error)?.message ??
+        "Check-in failed";
       toast.error(msg);
     },
   });
@@ -55,8 +61,6 @@ export function VisitorCheckInPage() {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!name.trim()) { toast.error("Visitor name is required"); return; }
-    if (!mobile.trim()) { toast.error("Mobile number is required"); return; }
-    if (!unitId) { toast.error("Please select a unit"); return; }
     mutation.mutate();
   };
 
@@ -67,6 +71,20 @@ export function VisitorCheckInPage() {
         <h1 className="text-2xl font-bold text-gray-900">Visitor Check-In</h1>
         <p className="mt-1 text-sm text-gray-500">Register visitor entry at the gate</p>
       </div>
+
+      {createdVisitor && (
+        <Card className="p-6 flex flex-col items-center gap-4">
+          <h2 className="font-semibold text-gray-900">Visitor QR Code</h2>
+          <p className="text-sm text-gray-500">{String(createdVisitor.visitor_name ?? "")}</p>
+          <div className="bg-white p-3 rounded border">
+            <QRCode value={String(createdVisitor.qr_token ?? createdVisitor.id ?? "")} size={200} />
+          </div>
+          <p className="text-xs text-gray-400 text-center">Show this to the guard for entry</p>
+          <button onClick={() => setCreatedVisitor(null)} className="text-sm text-gray-500 hover:text-gray-700 underline">
+            Dismiss
+          </button>
+        </Card>
+      )}
 
       <div className="grid gap-6 xl:grid-cols-[1fr_360px]">
         <Card className="p-6">
@@ -80,24 +98,20 @@ export function VisitorCheckInPage() {
                 <Input placeholder="Full name" value={name} onChange={(e) => setName(e.target.value)} required />
               </div>
               <div>
-                <label className="mb-1 block text-sm font-medium text-gray-700">
-                  Mobile Number <span className="text-red-500">*</span>
-                </label>
-                <Input placeholder="10-digit mobile" value={mobile} onChange={(e) => setMobile(e.target.value)} required />
+                <label className="mb-1 block text-sm font-medium text-gray-700">Mobile Number</label>
+                <Input placeholder="10-digit mobile (optional)" value={mobile} onChange={(e) => setMobile(e.target.value)} />
               </div>
             </div>
 
             <div className="grid gap-4 sm:grid-cols-2">
               <div>
-                <label className="mb-1 block text-sm font-medium text-gray-700">
-                  Visiting Unit <span className="text-red-500">*</span>
-                </label>
-                <Select value={unitId} onChange={(e) => setUnitId(e.target.value)} required>
-                  <option value="">Select unit</option>
+                <label className="mb-1 block text-sm font-medium text-gray-700">Visiting Unit</label>
+                <Select value={unitId} onChange={(e) => setUnitId(e.target.value)}>
+                  <option value="">Select unit (optional)</option>
                   {units.map((u) => (
                     <option key={String(u.unit_id ?? u.id)} value={String(u.unit_id ?? u.id)}>
                       {String(u.unit_number ?? "-")}
-                      {u.block_name ? ` · ${u.block_name}` : ""}
+                      {u.block_name ? ` - ${u.block_name}` : ""}
                     </option>
                   ))}
                 </Select>
@@ -105,10 +119,12 @@ export function VisitorCheckInPage() {
               <div>
                 <label className="mb-1 block text-sm font-medium text-gray-700">Visitor Type</label>
                 <Select value={type} onChange={(e) => setType(e.target.value)}>
-                  <option value="GUEST">Guest</option>
+                  <option value="WALK_IN">Walk-In</option>
+                  <option value="PRE_APPROVED">Pre-Approved</option>
+                  <option value="RECURRING">Recurring</option>
                   <option value="DELIVERY">Delivery</option>
-                  <option value="SERVICE">Service</option>
                   <option value="VENDOR">Vendor</option>
+                  <option value="STAFF">Staff</option>
                 </Select>
               </div>
             </div>
@@ -129,8 +145,8 @@ export function VisitorCheckInPage() {
               </Button>
               <Button className="flex-1" type="submit" disabled={mutation.isPending}>
                 {mutation.isPending
-                  ? <><Loader2 size={15} className="mr-1 animate-spin" />Checking In…</>
-                  : <><UserCheck size={15} className="mr-1" />Check In</>}
+                  ? <><Loader2 size={15} className="mr-1 animate-spin" />Registering...</>
+                  : <><UserCheck size={15} className="mr-1" />Register Visitor</>}
               </Button>
             </div>
           </form>

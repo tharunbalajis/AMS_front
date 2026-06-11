@@ -23,7 +23,6 @@ function AddPassModal({ societyId, onClose }: { societyId: number; onClose: () =
 
   const mut = useMutation({
     mutationFn: () => visitorsApi.addPass({
-      society_id:     societyId,
       unit_id:        Number(form.unit_id),
       resident_id:    form.resident_id,
       visitor_name:   form.visitor_name.trim(),

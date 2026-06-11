@@ -37,6 +37,12 @@ import { DeliveryTrackingPage } from "../features/visitors/pages/DeliveryTrackin
 import { StaffAttendancePage } from "../features/visitors/pages/StaffAttendancePage";
 import { SosEmergencyPage } from "../features/visitors/pages/SosEmergencyPage";
 import { GuestPassesPage } from "../features/visitors/pages/GuestPassesPage";
+import { PatrolDashboardPage }    from "../features/visitors/pages/PatrolDashboardPage";
+import { PatrolQRManagementPage } from "../features/visitors/pages/PatrolQRManagementPage";
+import { PatrolScanPage }         from "../features/visitors/pages/PatrolScanPage";
+import { PatrolHistoryPage }      from "../features/visitors/pages/PatrolHistoryPage";
+import { PatrolScanLogsPage }     from "../features/visitors/pages/PatrolScanLogsPage";
+import { PatrolFraudFlagsPage }   from "../features/visitors/pages/PatrolFraudFlagsPage";
 
 // Complaint pages
 import { ComplaintDashboardPage } from "../features/complaints/pages/ComplaintDashboardPage";
@@ -66,6 +72,8 @@ const CUSTOM_SLUGS = new Set([
   "units", "blocks",
   "visitors/security", "visitors/checkin", "visitors/logs", "visitors/guard", "visitors/qr",
   "visitors/deliveries", "visitors/attendance", "visitors/sos", "visitors/passes",
+  "visitors/patrol", "visitors/patrol/qr", "visitors/patrol/scan",
+  "visitors/patrol/history", "visitors/patrol/scan-logs/:patrolId", "visitors/patrol/fraud",
   "complaints/dashboard", "complaints/new", "complaints", "complaints/sla",
   "complaints/escalation", "complaints/maintenance", "complaints/analytics",
   "complaints/categories",
@@ -133,6 +141,12 @@ export function App() {
         <Route path="visitors/attendance" element={<PermissionRoute permission="visitors.view"><StaffAttendancePage /></PermissionRoute>} />
         <Route path="visitors/sos" element={<PermissionRoute permission="visitors.view"><SosEmergencyPage /></PermissionRoute>} />
         <Route path="visitors/passes" element={<PermissionRoute permission="visitors.view"><GuestPassesPage /></PermissionRoute>} />
+        <Route path="visitors/patrol"          element={<PermissionRoute permission="visitors.view"><PatrolDashboardPage /></PermissionRoute>} />
+        <Route path="visitors/patrol/qr"       element={<PermissionRoute permission="visitors.view"><PatrolQRManagementPage /></PermissionRoute>} />
+        <Route path="visitors/patrol/scan"     element={<PermissionRoute permission="visitors.view"><PatrolScanPage /></PermissionRoute>} />
+        <Route path="visitors/patrol/history"  element={<PermissionRoute permission="visitors.view"><PatrolHistoryPage /></PermissionRoute>} />
+        <Route path="visitors/patrol/scan-logs/:patrolId" element={<PermissionRoute permission="visitors.view"><PatrolScanLogsPage /></PermissionRoute>} />
+        <Route path="visitors/patrol/fraud"    element={<PermissionRoute permission="visitors.view"><PatrolFraudFlagsPage /></PermissionRoute>} />
 
         {/* ── Complaint custom routes ── */}
         <Route path="complaints/dashboard" element={<PermissionRoute permission="complaints.view"><ComplaintDashboardPage /></PermissionRoute>} />

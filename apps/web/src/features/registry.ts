@@ -1,4 +1,4 @@
-import { Armchair, BadgeDollarSign, BellRing, Boxes, Building, Building2, ClipboardCheck, FileBarChart, KeyRound, Megaphone, MessageSquare, Shield, Siren, Users, Wrench } from "lucide-react";
+import { AlertTriangle, Armchair, BadgeDollarSign, BellRing, Boxes, Building, Building2, ClipboardCheck, FileBarChart, KeyRound, Megaphone, MessageSquare, Shield, Siren, Users, Wrench } from "lucide-react";
 
 export type ModuleRoute = {
   slug: string;
@@ -60,5 +60,9 @@ export const EXTRA_MODULE_ROUTES: ModuleRoute[] = [
   { slug: "financials/expenses", label: "Expense Tracking", endpoint: "/expenses", permission: "finance", description: "Society expenses, GST amounts, approvals, and vendor spend.", icon: BadgeDollarSign, columns: ["description", "amount", "gst_amount", "status", "expense_date"] },
   { slug: "financials/gst", label: "GST Reports", endpoint: "/expenses", permission: "finance", description: "GST reporting workspace backed by expense GST data.", icon: FileBarChart, columns: ["description", "amount", "gst_amount", "status", "expense_date"] },
   { slug: "financials/penalties", label: "Penalty Management", endpoint: "/invoices", permission: "finance", description: "Penalty and overdue invoice monitoring for finance teams.", icon: BadgeDollarSign, columns: ["invoice_number", "resident_name", "balance_due", "status", "due_date"] },
-  { slug: "financials/reports", label: "Financial Reports", endpoint: "/invoices", permission: "finance", description: "Finance report view for invoice, collection, and overdue summaries.", icon: FileBarChart, columns: ["invoice_number", "resident_name", "total_amount", "status", "due_date"] }
+  { slug: "financials/reports", label: "Financial Reports", endpoint: "/invoices", permission: "finance", description: "Finance report view for invoice, collection, and overdue summaries.", icon: FileBarChart, columns: ["invoice_number", "resident_name", "total_amount", "status", "due_date"] },
+  { slug: "visitors/patrol",         label: "Patrol Dashboard",   endpoint: "/patrol/dashboard",   permission: "visitors", description: "Real-time patrol session monitoring and completion stats.",              icon: Shield,        columns: ["guard_id", "patrol_status", "scanned_points", "total_points", "completion_pct"] },
+  { slug: "visitors/patrol/qr",      label: "Patrol QR Points",   endpoint: "/patrol/qr-points",   permission: "visitors", description: "Create and manage patrol QR checkpoint points.",                       icon: Shield,        columns: ["label", "block_name", "floor_number", "is_active"] },
+  { slug: "visitors/patrol/history", label: "Patrol History",     endpoint: "/patrol/history",     permission: "visitors", description: "Historical patrol session records and completion data.",               icon: Shield,        columns: ["guard_id", "patrol_status", "scanned_points", "started_at"] },
+  { slug: "visitors/patrol/fraud",   label: "Patrol Fraud Flags", endpoint: "/patrol/fraud-flags", permission: "visitors", description: "Detected fraud and geo-spoofing flags from patrol sessions.",          icon: AlertTriangle, columns: ["guard_id", "flag_type", "flagged_at", "is_reviewed"] }
 ];
