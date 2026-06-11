@@ -2,9 +2,9 @@ import { Button, Card, DataTable, Input, Select, StatusBadge } from "@ams/ui";
 import { normalizeList } from "@ams/utils";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { residentsApi } from "@/api/residents.api";
-import { residentsExtApi } from "@/app/api/client";
 import { useScope } from "@/app/scope/ScopeProvider";
 
 const mapResidentType = (v: unknown) => {
@@ -13,7 +13,9 @@ const mapResidentType = (v: unknown) => {
 };
 
 export function MoveInOutPage() {
-  const { society, queryParams } = useScope();
+  const { society, queryParams, selectedSocietyId } = useScope();
+  const navigate = useNavigate();
+  const societyId = selectedSocietyId;
   const [activeTab, setActiveTab] = useState<"in" | "out">("in");
   const [residentId, setResidentId] = useState("");
   const [date, setDate] = useState("");
@@ -22,6 +24,7 @@ export function MoveInOutPage() {
   const { data: raw } = useQuery({
     queryKey: ["residents", queryParams],
     queryFn: () => residentsApi.getAll({ ...queryParams, page: 1, page_size: 200, is_active: true }),
+    enabled: !!societyId,
     retry: false,
   });
   const residents = normalizeList<Record<string, unknown>>(raw?.data ?? raw ?? []);
@@ -31,14 +34,16 @@ export function MoveInOutPage() {
   const { data: leasesRaw } = useQuery({
     queryKey: ["leases", queryParams],
     queryFn: () => residentsApi.getLeases({ ...queryParams, page: 1, page_size: 500 }),
+    enabled: !!societyId,
     retry: false,
   });
   const leases = normalizeList<Record<string, unknown>>(leasesRaw?.data ?? leasesRaw ?? []) ?? [];
   const activeLeaseForSelected = leases.find(l => String(l.tenant_resident_id) === String(residentId) && String(l.status) === 'ACTIVE');
 
   const { data: recentRaw, refetch: refetchRecent } = useQuery({
-    queryKey: ["residents-moves", society?.society_id],
-    queryFn: () => residentsApi.getAll({ society_id: society?.society_id, page: 1, page_size: 20 }),
+    queryKey: ["residents-moves", societyId],
+    queryFn: () => residentsApi.getAll({ society_id: societyId, page: 1, page_size: 20 }),
+    enabled: !!societyId,
     retry: false,
   });
   const recent = normalizeList<Record<string, unknown>>(recentRaw?.data ?? recentRaw ?? [])
@@ -74,8 +79,7 @@ export function MoveInOutPage() {
     if (activeTab === "out") {
       moveOutMutation.mutate();
     } else {
-      // redirect to resident directory where Add Resident wizard lives
-      window.location.href = '/residents';
+      navigate('/residents');
     }
   };
 

@@ -1,7 +1,7 @@
 import { Button, DataTable, SearchBox, Select } from "@ams/ui";
 import { normalizeList } from "@ams/utils";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Car, Loader2, Plus, X } from "lucide-react";
+import { Car, Loader2, Plus, Trash2, X } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 import { residentsApi } from "@/api/residents.api";
@@ -14,6 +14,7 @@ function AddVehicleModal({ societyId, onClose }: { societyId: number; onClose: (
   const residentsQuery = useQuery({
     queryKey: ["residents-simple", societyId],
     queryFn: () => residentsApi.getAll({ society_id: societyId, page: 1, page_size: 200 }),
+    enabled: !!societyId,
   });
   const residents = normalizeList<Record<string, unknown>>(residentsQuery.data?.data ?? residentsQuery.data);
   const mutation = useMutation({
@@ -21,13 +22,12 @@ function AddVehicleModal({ societyId, onClose }: { societyId: number; onClose: (
       const payload = {
         ...form,
         society_id: societyId,
-        unit_id: Number(form.unit_id),
+        unit_id: form.unit_id ? Number(form.unit_id) : undefined,
       };
-
       return residentsApi.addVehicle(payload);
     },
     onSuccess: () => { toast.success("Vehicle added"); qc.invalidateQueries({ queryKey: ["vehicles"] }); onClose(); },
-    onError: (e: unknown) => toast.error((e as Error).message ?? "Failed to add vehicle"),
+    onError: (e: any) => toast.error(e?.response?.data?.message ?? (e as Error).message ?? "Failed to add vehicle"),
   });
 
   return (
@@ -42,12 +42,15 @@ function AddVehicleModal({ societyId, onClose }: { societyId: number; onClose: (
             <span className="mb-1 block text-sm font-medium text-gray-700">Resident *</span>
             <select value={form.resident_id}
               onChange={e => {
-                const r = residents.find(x => String(x.id) === e.target.value);
+                const r = residents.find(x => String(x.resident_id ?? x.id) === e.target.value);
                 setForm(f => ({ ...f, resident_id: e.target.value, unit_id: r ? String(r.unit_id ?? "") : "" }));
               }}
               className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm">
               <option value="">Select resident</option>
-              {residents.map(r => <option key={String(r.id)} value={String(r.id)}>{String(r.full_name)} — {String(r.unit_number ?? "")}</option>)}
+              {residents.map(r => {
+                const rid = String(r.resident_id ?? r.id ?? "");
+                return <option key={rid} value={rid}>{String(r.full_name)} — {String(r.unit_number ?? "")}</option>;
+              })}
             </select>
           </label>
           <label className="block">
@@ -97,6 +100,7 @@ function AddVehicleModal({ societyId, onClose }: { societyId: number; onClose: (
 
 export function VehicleManagementPage() {
   const { queryParams, society, selectedSocietyId } = useScope();
+  const qc = useQueryClient();
   const societyId = selectedSocietyId;
   const [search, setSearch] = useState("");
   const [type, setType] = useState("");
@@ -110,6 +114,12 @@ export function VehicleManagementPage() {
   });
 
   const rows = normalizeList<Record<string, unknown>>(raw?.data ?? raw);
+
+  const deleteMut = useMutation({
+    mutationFn: (id: string) => residentsApi.deleteVehicle(id),
+    onSuccess: () => { toast.success("Vehicle deleted"); qc.invalidateQueries({ queryKey: ["vehicles"] }); },
+    onError: (e: any) => toast.error(e?.response?.data?.message ?? "Delete failed"),
+  });
 
   const handleExportCsv = () => {
     const headers = [ "registration_no", "vehicle_type", "make", "model", "color", "full_name", "block_name", "unit_number", "parking_slot" ];
@@ -160,6 +170,16 @@ export function VehicleManagementPage() {
             { key: "block_name", header: "BLOCK" },
             { key: "unit_number", header: "UNIT" },
             { key: "parking_slot", header: "PARKING" },
+            { key: "actions", header: "", render: (row: any) => (
+              <button
+                onClick={() => deleteMut.mutate(String(row.id ?? ""))}
+                disabled={deleteMut.isPending}
+                className="rounded p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors"
+                title="Delete vehicle"
+              >
+                <Trash2 size={14} />
+              </button>
+            )},
           ]}
         />
       )}

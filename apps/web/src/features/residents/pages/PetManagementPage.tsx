@@ -1,7 +1,7 @@
 import { Button, DataTable, SearchBox, Select } from "@ams/ui";
 import { normalizeList } from "@ams/utils";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Loader2, PawPrint, Plus, X } from "lucide-react";
+import { Loader2, PawPrint, Plus, Trash2, X } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 import { residentsApi } from "@/api/residents.api";
@@ -19,6 +19,7 @@ function AddPetModal({ societyId, onClose }: { societyId: number; onClose: () =>
   const residentsQuery = useQuery({
     queryKey: ["residents-simple", societyId],
     queryFn: () => residentsApi.getAll({ society_id: societyId, is_active: true, page: 1, page_size: 200 }),
+    enabled: !!societyId,
   });
   const residents = normalizeList<Record<string, unknown>>(residentsQuery.data?.data ?? residentsQuery.data);
   const today = new Date().toISOString().slice(0,10);
@@ -35,11 +36,11 @@ function AddPetModal({ societyId, onClose }: { societyId: number; onClose: () =>
     mutationFn: () => residentsApi.addPet({
       ...form,
       society_id: societyId,
-      unit_id: Number(form.unit_id),
+      unit_id: form.unit_id ? Number(form.unit_id) : undefined,
       vaccination_date: form.vaccination_date || null,
     }),
     onSuccess: () => { toast.success("Pet added"); qc.invalidateQueries({ queryKey: ["pets"] }); onClose(); },
-    onError: (e: unknown) => toast.error((e as Error).message ?? "Failed to add pet"),
+    onError: (e: any) => toast.error(e?.response?.data?.message ?? (e as Error).message ?? "Failed to add pet"),
   });
 
   return (
@@ -54,14 +55,17 @@ function AddPetModal({ societyId, onClose }: { societyId: number; onClose: () =>
             <span className="mb-1 block text-sm font-medium text-gray-700">Resident (Owner) *</span>
             <select value={form.resident_id}
               onChange={e => {
-                const r = residentsFiltered.find(x => String(x.id) === e.target.value);
+                const r = residentsFiltered.find(x => String(x.resident_id ?? x.id) === e.target.value);
                 setForm(f => ({ ...f, resident_id: e.target.value, unit_id: r ? String(r.unit_id ?? "") : "" }));
               }}
               className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm"
               disabled={residentsQuery.isLoading}
             >
               {residentsQuery.isLoading ? <option>Loading...</option> : <option value="">Select resident</option>}
-              {residentsFiltered.map(r => <option key={String(r.id)} value={String(r.id)}>{String(r.full_name)} — {String(r.unit_number ?? "")}</option>)}
+              {residentsFiltered.map(r => {
+                const rid = String(r.resident_id ?? r.id ?? "");
+                return <option key={rid} value={rid}>{String(r.full_name)} — {String(r.unit_number ?? "")}</option>;
+              })}
             </select>
           </label>
           <div className="grid grid-cols-2 gap-4">
@@ -105,6 +109,7 @@ function AddPetModal({ societyId, onClose }: { societyId: number; onClose: () =>
 
 export function PetManagementPage() {
   const { queryParams, society, selectedSocietyId } = useScope();
+  const qc = useQueryClient();
   const societyId = selectedSocietyId;
   const [search, setSearch] = useState("");
   const [species, setSpecies] = useState("");
@@ -119,6 +124,13 @@ export function PetManagementPage() {
   });
 
   const rows = normalizeList<Record<string, unknown>>(raw?.data ?? raw);
+
+  const deleteMut = useMutation({
+    mutationFn: (id: string) => residentsApi.deletePet(id),
+    onSuccess: () => { toast.success("Pet deleted"); qc.invalidateQueries({ queryKey: ["pets"] }); },
+    onError: (e: any) => toast.error(e?.response?.data?.message ?? "Delete failed"),
+  });
+
   const filteredRows = (rows ?? []).filter(r => {
     if (ownerType) {
       return mapResidentType(r.resident_type ?? r.owner_resident_type ?? "") === ownerType;
@@ -176,6 +188,16 @@ export function PetManagementPage() {
             { key: "block_name", header: "BLOCK" },
             { key: "unit_number", header: "UNIT" },
             { key: "vaccination_date", header: "VACCINATED" },
+            { key: "actions", header: "", render: (row: any) => (
+              <button
+                onClick={() => deleteMut.mutate(String(row.id ?? ""))}
+                disabled={deleteMut.isPending}
+                className="rounded p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors"
+                title="Delete pet"
+              >
+                <Trash2 size={14} />
+              </button>
+            )},
           ]}
         />
       )}

@@ -23,17 +23,20 @@ const QUICK_ACTIONS = [
 ];
 
 export function ResidentOverviewPage() {
-  const { queryParams } = useScope();
+  const { queryParams, selectedSocietyId } = useScope();
+  const societyId = selectedSocietyId;
   const navigate = useNavigate();
 
   const { data: resRaw, isLoading: resLoading } = useQuery({
     queryKey: ["residents-overview", queryParams],
-    queryFn: () => residentsApi.getAll({ ...queryParams, limit: 200 }),
+    queryFn: () => residentsApi.getAll({ ...queryParams, page: 1, page_size: 200 }),
+    enabled: !!societyId,
     retry: false,
   });
   const { data: unitRaw } = useQuery({
     queryKey: ["units-overview", queryParams],
     queryFn: () => residentsApi.getUnits({ ...queryParams, page_size: 200 }),
+    enabled: !!societyId,
     retry: false,
   });
 

@@ -3,7 +3,8 @@ import { Button, Card, Input, Select } from "@ams/ui";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { UserCheck, UserCog, Check, Loader2 } from "lucide-react";
 import { toast } from "sonner";
-import { residentsApi, ParkingSlot } from "@/api/residents.api";
+import { residentsApi } from "@/api/residents.api";
+import { parkingApi, type ParkingSlot } from "@/api/parking.api";
 import { useDynamicBlocks } from "@/hooks/useDynamicBlocks";
 import { useDynamicUnits } from "@/hooks/useDynamicUnits";
 import { useFilterReset } from "@/hooks/useFilterReset";
@@ -69,20 +70,15 @@ export default function ResidentWizard({ societyId, onClose }: { societyId: numb
     ? inactiveOwnersQ.data
     : ((inactiveOwnersQ.data as any)?.data ?? []);
 
-  // Real parking slots from API, cached per society
-  const [parkingSlots, setParkingSlots] = useState<ParkingSlot[]>([]);
-  const [parkingLoaded, setParkingLoaded] = useState(false);
-  const fetchParkingSlots = async () => {
-    if (parkingLoaded) return;
-    try {
-      const res = await residentsApi.getParkingSlots(0, societyId);
-      const slots: ParkingSlot[] = Array.isArray((res as any)?.data) ? (res as any).data : [];
-      setParkingSlots(slots);
-      setParkingLoaded(true);
-    } catch {
-      setParkingSlots([]);
-    }
-  };
+  // Available parking slots — fetched lazily when user reaches vehicle step
+  const [parkingEnabled, setParkingEnabled] = useState(false);
+  const parkingSlotsQ = useQuery({
+    queryKey: ["parking-slots-available", societyId],
+    queryFn: () => parkingApi.getSlots({ society_id: societyId, parking_status: "AVAILABLE", page_size: 500 }),
+    enabled: !!societyId && parkingEnabled,
+    staleTime: 60_000,
+  });
+  const parkingSlots: ParkingSlot[] = parkingSlotsQ.data?.data ?? [];
 
   // Validation
   const isPhoneValid = (p: string) => /^[0-9]{10}$/.test(p.trim());
@@ -452,11 +448,11 @@ export default function ResidentWizard({ societyId, onClose }: { societyId: numb
                   <Select
                     value={v.parking_slot || ""}
                     onChange={(e: any) => setVehicles(prev => prev.map((x, i) => i === idx ? { ...x, parking_slot: e.target.value } : x))}
-                    onFocus={fetchParkingSlots}
+                    onFocus={() => setParkingEnabled(true)}
                   >
                     <option value="">Select parking</option>
                     {parkingSlots.map(p => (
-                      <option key={p.parking_slot_id} value={p.slot_code}>
+                      <option key={p.id} value={p.slot_code}>
                         {p.slot_code} ({p.slot_type})
                       </option>
                     ))}

@@ -9,13 +9,14 @@ import { residentsExtApi } from "@/app/api/client";
 import { useScope } from "@/app/scope/ScopeProvider";
 
 export function ResidentQRPassPage() {
-  const { queryParams } = useScope();
+  const { queryParams, selectedSocietyId } = useScope();
   const [search, setSearch] = useState("");
   const [selectedId, setSelectedId] = useState<string | null>(null);
 
   const { data: raw } = useQuery({
     queryKey: ["residents-qr-list", queryParams],
     queryFn: () => residentsApi.getAll({ ...queryParams, page: 1, page_size: 200 }),
+    enabled: !!selectedSocietyId,
     retry: false,
   });
   const all = normalizeList<Record<string, unknown>>(raw?.data ?? raw ?? []);
