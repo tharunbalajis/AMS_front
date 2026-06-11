@@ -1,17 +1,19 @@
 import { Button, Card, SearchBox } from "@ams/ui";
 import { normalizeList } from "@ams/utils";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { AlertTriangle, Clock, LogOut } from "lucide-react";
+import { AlertTriangle, Clock, Loader2, LogOut } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 import { visitorsApi } from "@/api/visitors.api";
 import { useScope } from "@/app/scope/ScopeProvider";
 
 const TYPE_COLOR: Record<string, string> = {
-  GUEST:    "bg-blue-500",
-  DELIVERY: "bg-amber-500",
-  SERVICE:  "bg-purple-500",
-  VENDOR:   "bg-green-500",
+  WALK_IN:      "bg-blue-500",
+  PRE_APPROVED: "bg-purple-500",
+  RECURRING:    "bg-green-500",
+  DELIVERY:     "bg-amber-500",
+  VENDOR:       "bg-gray-500",
+  STAFF:        "bg-teal-500",
 };
 
 function CheckOutButton({ id }: { id: string }) {
@@ -41,6 +43,7 @@ function timeAgo(ts: string): string {
 
 export function GuardPanelPage() {
   const { queryParams } = useScope();
+  const qc = useQueryClient();
   const [search, setSearch] = useState("");
 
   const { data: raw, isLoading } = useQuery({
@@ -49,10 +52,12 @@ export function GuardPanelPage() {
     refetchInterval: 30_000,
     retry: false,
   });
-  const visitors = normalizeList<Record<string, unknown>>(raw?.data ?? raw);
+  const visitors = normalizeList<Record<string, unknown>>(
+    (raw as any)?.data?.data?.data ?? (raw as any)?.data?.data ?? raw?.data ?? raw
+  );
 
   const inside = visitors
-    .filter((v) => !v.check_out_at)
+    .filter((v) => String(v.status ?? "").toUpperCase() === "CHECKED_IN")
     .filter((v) =>
       !search
       || String(v.visitor_name ?? "").toLowerCase().includes(search.toLowerCase())
@@ -60,6 +65,18 @@ export function GuardPanelPage() {
     );
 
   const todayCount = visitors.length;
+
+  const sosMut = useMutation({
+    mutationFn: () => visitorsApi.createSosAlert({
+      alert_type: "GENERAL",
+      description: "Guard raised emergency alert",
+    }),
+    onSuccess: () => {
+      toast.success("SOS alert raised! Authorities notified.");
+      qc.invalidateQueries({ queryKey: ["sos-alerts"] });
+    },
+    onError: () => toast.error("Failed to raise SOS"),
+  });
 
   return (
     <div className="space-y-6">
@@ -72,8 +89,15 @@ export function GuardPanelPage() {
       <div className="flex flex-wrap gap-3">
         <SearchBox className="min-w-[260px] flex-1" placeholder="Search visitor, unit..."
           value={search} onChange={(e) => setSearch(e.target.value)} />
-        <Button variant="danger">
-          <AlertTriangle size={15} className="mr-1" />SOS Alert
+        <Button
+          variant="danger"
+          onClick={() => { if (window.confirm("Raise SOS alert?")) sosMut.mutate(); }}
+          disabled={sosMut.isPending}
+        >
+          {sosMut.isPending
+            ? <Loader2 size={15} className="mr-1 animate-spin" />
+            : <AlertTriangle size={15} className="mr-1" />}
+          SOS Alert
         </Button>
       </div>
 
@@ -96,7 +120,7 @@ export function GuardPanelPage() {
 
           <div className="space-y-3">
             {inside.map((entry) => {
-              const type  = String(entry.visitor_type ?? entry.type ?? "GUEST").toUpperCase();
+              const type  = String(entry.visitor_type ?? "WALK_IN").toUpperCase();
               const color = TYPE_COLOR[type] ?? "bg-gray-500";
               const name  = String(entry.visitor_name ?? "Unknown");
               return (

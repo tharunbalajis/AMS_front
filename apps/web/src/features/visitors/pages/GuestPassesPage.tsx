@@ -121,7 +121,9 @@ export function GuestPassesPage() {
     queryFn: () => visitorsApi.getPasses({ society_id: queryParams.society_id }),
     retry: false,
   });
-  const rows = normalizeList<Record<string, unknown>>(raw?.data ?? raw).filter(
+  const rows = normalizeList<Record<string, unknown>>(
+    (raw as any)?.data?.data?.data ?? (raw as any)?.data?.data ?? raw?.data ?? raw
+  ).filter(
     (r) => !search
       || String(r.visitor_name ?? "").toLowerCase().includes(search.toLowerCase())
       || String(r.resident_name ?? "").toLowerCase().includes(search.toLowerCase())

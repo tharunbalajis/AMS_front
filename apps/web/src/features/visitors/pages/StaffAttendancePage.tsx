@@ -13,8 +13,11 @@ export function StaffAttendancePage() {
     queryKey: ["staff-attendance", queryParams],
     queryFn: () => visitorsApi.getStaff({ ...queryParams }),
     retry: false,
+    throwOnError: false,
   });
-  const rows = normalizeList<Record<string, unknown>>(raw?.data ?? raw);
+  const rows = normalizeList<Record<string, unknown>>(
+    (raw as any)?.data?.data?.data ?? (raw as any)?.data?.data ?? raw?.data ?? raw
+  );
 
   const present = rows.filter((r) => String(r.status ?? "") === "PRESENT").length;
   const late = rows.filter((r) => String(r.status ?? "") === "LATE").length;

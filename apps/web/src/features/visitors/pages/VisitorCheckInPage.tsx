@@ -40,7 +40,7 @@ export function VisitorCheckInPage() {
         vehicle_number: vehicle.trim() || undefined,
       }),
     onSuccess: (res: any) => {
-      const visitor = res?.data ?? res;
+      const visitor = res?.data?.data ?? res?.data ?? res;
       toast.success("Visitor registered successfully");
       setCreatedVisitor(visitor);
       qc.invalidateQueries({ queryKey: ["visitors"] });

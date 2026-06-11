@@ -17,8 +17,8 @@ export function PatrolScanPage() {
   const startMutation = useMutation({
     mutationFn: () => patrolApi.startPatrol(),
     onSuccess: (res: any) => {
-      const id = String(res?.data?.id ?? res?.id ?? "");
-      setSessionId(id);
+      const session = res?.data?.data ?? res?.data;
+      setSessionId(String(session?.id ?? ""));
       toast.success("Patrol session started");
     },
     onError: (e: any) => toast.error(e?.response?.data?.message ?? "Failed to start patrol"),

@@ -28,9 +28,11 @@ export function SecurityDashboardPage() {
     queryFn: () => visitorsApi.getDashboard({ society_id: queryParams.society_id }),
     retry: false,
   });
-  const dashCounts = (dashRaw as any)?.data?.counts ?? {};
+  const dashCounts = (dashRaw as any)?.data?.data?.counts ?? {};
 
-  const visitors = normalizeList<Record<string, unknown>>(raw?.data ?? raw);
+  const visitors = normalizeList<Record<string, unknown>>(
+    (raw as any)?.data?.data?.data ?? (raw as any)?.data?.data ?? raw?.data ?? raw
+  );
   const totalToday = visitors.length;
   const inside = visitors.filter((v) => String(v.status ?? "").toUpperCase() === "CHECKED_IN").length;
   const deliveries = visitors.filter((v) => String(v.visitor_type ?? "").toUpperCase() === "DELIVERY").length;

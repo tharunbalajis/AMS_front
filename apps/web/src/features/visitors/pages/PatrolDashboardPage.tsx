@@ -13,7 +13,7 @@ export function PatrolDashboardPage() {
     retry: false,
     refetchInterval: 30000,
   });
-  const d = (raw as any)?.data ?? {};
+  const d = (raw as any)?.data?.data ?? (raw as any)?.data ?? {};
   const recent = normalizeList<Record<string, unknown>>(d.recent_patrols);
   const kpis = [
     { label: "QR Points Total",  value: d.total_qr_points ?? 0,         icon: Shield,        color: "bg-blue-100 text-blue-700" },

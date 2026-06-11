@@ -20,7 +20,9 @@ export function PatrolQRManagementPage() {
     queryFn: () => patrolApi.getQrPoints({ society_id: queryParams.society_id }),
     retry: false,
   });
-  const points = normalizeList<Record<string, unknown>>((raw as any)?.data ?? raw);
+  const points = normalizeList<Record<string, unknown>>(
+    (raw as any)?.data?.data?.data ?? (raw as any)?.data?.data ?? (raw as any)?.data ?? raw
+  );
 
   const createMutation = useMutation({
     mutationFn: () => patrolApi.createQrPoint({

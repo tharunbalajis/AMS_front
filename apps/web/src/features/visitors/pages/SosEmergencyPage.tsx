@@ -63,7 +63,9 @@ export function SosEmergencyPage() {
     queryFn: () => visitorsApi.getSosAlerts({ society_id: queryParams.society_id }),
     retry: false,
   });
-  const alerts = normalizeList<Record<string, unknown>>(raw?.data ?? raw);
+  const alerts = normalizeList<Record<string, unknown>>(
+    (raw as any)?.data?.data?.data ?? (raw as any)?.data?.data ?? raw?.data ?? raw
+  );
   const activeAlerts = alerts.filter((a) => String(a.status ?? "").toUpperCase() !== "RESOLVED");
   const pastAlerts   = alerts.filter((a) => String(a.status ?? "").toUpperCase() === "RESOLVED");
 

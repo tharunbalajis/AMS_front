@@ -13,7 +13,9 @@ export function PatrolScanLogsPage() {
     enabled: Boolean(patrolId),
     retry: false,
   });
-  const rows = normalizeList<Record<string, unknown>>((raw as any)?.data ?? raw);
+  const rows = normalizeList<Record<string, unknown>>(
+    (raw as any)?.data?.data?.data ?? (raw as any)?.data?.data ?? (raw as any)?.data ?? raw
+  );
 
   return (
     <div className="space-y-6">

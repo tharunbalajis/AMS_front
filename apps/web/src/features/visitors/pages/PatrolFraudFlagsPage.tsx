@@ -12,7 +12,9 @@ export function PatrolFraudFlagsPage() {
     queryFn: () => patrolApi.getFraudFlags({ society_id: queryParams.society_id }),
     retry: false,
   });
-  const rows = normalizeList<Record<string, unknown>>((raw as any)?.data ?? raw);
+  const rows = normalizeList<Record<string, unknown>>(
+    (raw as any)?.data?.data?.data ?? (raw as any)?.data?.data ?? (raw as any)?.data ?? raw
+  );
   const openCount = rows.filter(r => !r.is_reviewed).length;
 
   return (

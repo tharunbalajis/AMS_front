@@ -23,13 +23,12 @@ function AddDeliveryModal({ societyId, onClose }: { societyId: number; onClose: 
 
   const mut = useMutation({
     mutationFn: () => visitorsApi.addDelivery({
-      society_id:          societyId,
       unit_id:             Number(form.unit_id),
       delivery_type:       form.delivery_type,
-      delivery_from:       form.delivery_from.trim() || null,
-      tracking_number:     form.tracking_number.trim() || null,
-      delivered_by_name:   form.delivered_by_name.trim() || null,
-      delivered_by_mobile: form.delivered_by_mobile.trim() || null,
+      delivery_from:       form.delivery_from.trim() || undefined,
+      tracking_number:     form.tracking_number.trim() || undefined,
+      delivered_by_name:   form.delivered_by_name.trim() || undefined,
+      delivered_by_mobile: form.delivered_by_mobile.trim() || undefined,
     }),
     onSuccess: () => {
       toast.success("Delivery logged");
@@ -69,8 +68,9 @@ function AddDeliveryModal({ societyId, onClose }: { societyId: number; onClose: 
               className={cls}>
               <option value="COURIER">Courier</option>
               <option value="FOOD">Food</option>
+              <option value="PARCEL">Parcel</option>
               <option value="GROCERY">Grocery</option>
-              <option value="MEDICINE">Medicine</option>
+              <option value="LAUNDRY">Laundry</option>
               <option value="OTHER">Other</option>
             </select>
           </label>
@@ -145,7 +145,9 @@ export function DeliveryTrackingPage() {
     queryFn: () => visitorsApi.getDeliveries({ society_id: queryParams.society_id }),
     retry: false,
   });
-  const rows = normalizeList<Record<string, unknown>>(raw?.data ?? raw).filter(
+  const rows = normalizeList<Record<string, unknown>>(
+    (raw as any)?.data?.data?.data ?? (raw as any)?.data?.data ?? raw?.data ?? raw
+  ).filter(
     (r) => !search
       || String(r.delivered_by_name ?? "").toLowerCase().includes(search.toLowerCase())
       || String(r.delivery_from ?? "").toLowerCase().includes(search.toLowerCase())
@@ -180,7 +182,7 @@ export function DeliveryTrackingPage() {
           { key: "received_at",       header: "RECEIVED" },
           {
             key: "status", header: "STATUS",
-            render: (row) => <StatusBadge value={row.status === "DELIVERED" ? "RESOLVED" : "PENDING"} />,
+            render: (row) => <StatusBadge value={String(row.status ?? "RECEIVED")} />,
           },
           {
             key: "actions", header: "",

@@ -16,7 +16,9 @@ export function QREntrySystemPage() {
     queryFn: () => visitorsApi.getPasses({ society_id: queryParams.society_id }),
     retry: false,
   });
-  const passes = normalizeList<Record<string, unknown>>(raw?.data ?? raw);
+  const passes = normalizeList<Record<string, unknown>>(
+    (raw as any)?.data?.data?.data ?? (raw as any)?.data?.data ?? raw?.data ?? raw
+  );
 
   const handleVerify = () => {
     const found = passes.find(

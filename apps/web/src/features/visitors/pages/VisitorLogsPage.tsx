@@ -8,10 +8,12 @@ import { useScope } from "@/app/scope/ScopeProvider";
 
 
 const TYPE_COLORS: Record<string, string> = {
-  GUEST: "bg-blue-100 text-blue-700",
-  DELIVERY: "bg-amber-100 text-amber-700",
-  SERVICE: "bg-purple-100 text-purple-700",
-  VENDOR: "bg-gray-100 text-gray-700",
+  WALK_IN:      "bg-blue-100 text-blue-700",
+  PRE_APPROVED: "bg-purple-100 text-purple-700",
+  RECURRING:    "bg-green-100 text-green-700",
+  DELIVERY:     "bg-amber-100 text-amber-700",
+  VENDOR:       "bg-gray-100 text-gray-700",
+  STAFF:        "bg-teal-100 text-teal-700",
 };
 
 export function VisitorLogsPage() {
@@ -25,7 +27,9 @@ export function VisitorLogsPage() {
     retry: false,
   });
 
-  let rows = normalizeList<Record<string, unknown>>(raw?.data ?? raw);
+  let rows = normalizeList<Record<string, unknown>>(
+    (raw as any)?.data?.data?.data ?? (raw as any)?.data?.data ?? raw?.data ?? raw
+  );
   if (type) rows = rows.filter((r) => String(r.visitor_type ?? "") === type);
   if (status) rows = rows.filter((r) => String(r.status ?? "") === status);
 
@@ -43,16 +47,20 @@ export function VisitorLogsPage() {
       <div className="flex flex-wrap gap-3">
         <Select className="w-44" value={type} onChange={(e) => setType(e.target.value)}>
           <option value="">All Types</option>
-          <option value="GUEST">Guest</option>
+          <option value="WALK_IN">Walk-In</option>
+          <option value="PRE_APPROVED">Pre-Approved</option>
+          <option value="RECURRING">Recurring</option>
           <option value="DELIVERY">Delivery</option>
-          <option value="SERVICE">Service</option>
           <option value="VENDOR">Vendor</option>
+          <option value="STAFF">Staff</option>
         </Select>
         <Select className="w-44" value={status} onChange={(e) => setStatus(e.target.value)}>
           <option value="">All Status</option>
-          <option value="INSIDE">Inside</option>
-          <option value="EXITED">Exited</option>
+          <option value="PENDING">Pending</option>
+          <option value="CHECKED_IN">Checked In</option>
           <option value="CHECKED_OUT">Checked Out</option>
+          <option value="REJECTED">Rejected</option>
+          <option value="EXPIRED">Expired</option>
         </Select>
         <input type="date" className="h-10 rounded-md border border-gray-200 px-3 text-sm outline-none focus:border-blue-400" />
       </div>
