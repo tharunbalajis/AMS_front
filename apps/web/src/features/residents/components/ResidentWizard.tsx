@@ -202,8 +202,24 @@ export default function ResidentWizard({ societyId, onClose }: { societyId: numb
       onClose();
     },
     onError: (e: any) => {
-      const msg = e?.response?.data?.message ?? e?.response?.data?.error ?? e?.message ?? "Failed to save resident";
-      toast.error(msg);
+      const status = e?.response?.status;
+      const msg    = e?.response?.data?.message ?? e?.response?.data?.error ?? e?.message ?? "Failed to save resident";
+      if (status === 409) {
+        const lower = msg.toLowerCase();
+        if (lower.includes("owner")) {
+          toast.error("This unit already has an active owner. Please select a different unit.");
+        } else if (lower.includes("tenant")) {
+          toast.error("This unit already has an active tenant. Please move out the existing tenant first or choose a different unit.");
+        } else if (lower.includes("registration")) {
+          toast.error("A vehicle with this registration number already exists. Please check and try again.");
+        } else {
+          toast.error("Conflict: " + msg);
+        }
+      } else if (status === 400) {
+        toast.error("Validation error: " + msg);
+      } else {
+        toast.error(msg);
+      }
     },
   });
 

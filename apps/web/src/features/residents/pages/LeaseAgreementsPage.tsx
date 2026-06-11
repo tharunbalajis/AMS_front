@@ -26,26 +26,20 @@ export function LeaseAgreementsPage() {
   const qc = useQueryClient();
 
   const { data: raw, isLoading } = useQuery({
-
-    queryKey: [
-      "leases",
-      queryParams,
-      search,
-    ],
-
+    queryKey: ["leases", societyId, search],
     queryFn: () =>
       residentsApi.getLeases({
-        ...queryParams,
+        society_id: societyId,
         search: search || undefined,
       }),
-
     enabled: !!societyId,
     retry: false,
   });
 
-  // Backend returns a plain array; normalizeList handles the axios wrapper
-  const rows =
-    normalizeList<any>(raw);
+  // getLeases returns unwrapArray result (already an array), but handle both cases
+  const rows: any[] = Array.isArray(raw)
+    ? raw
+    : normalizeList<any>(raw);
 
   const endLeaseMut = useMutation({
     mutationFn: async ({ leaseId, residentId }: { leaseId: string; residentId: string }) => {

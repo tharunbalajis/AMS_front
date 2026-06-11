@@ -143,7 +143,7 @@ export function PetManagementPage() {
         </Select>
         <Select className="w-40" value={species} onChange={e => setSpecies(e.target.value)}>
           <option value="">All Species</option>
-          {["DOG","CAT","BIRD","FISH","RABBIT","OTHER"].map(s => <option key={s} value={s}>{s}</option>)}
+          {["DOG","CAT","BIRD","FISH","RABBIT","HAMSTER","TURTLE","SNAKE","OTHER"].map(s => <option key={s} value={s}>{s.charAt(0)+s.slice(1).toLowerCase()}</option>)}
         </Select>
       </div>
 

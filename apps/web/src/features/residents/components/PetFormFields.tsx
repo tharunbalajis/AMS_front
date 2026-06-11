@@ -64,8 +64,8 @@ export function PetFormFields({ value, onChange }: Props) {
         <label className="block">
           <span className={lbl}>Species *</span>
           <select value={value.species} onChange={e => set("species", e.target.value)} className={inp}>
-            {["DOG","CAT","BIRD","FISH","RABBIT","OTHER"].map(s => (
-              <option key={s} value={s}>{s}</option>
+            {["DOG","CAT","BIRD","FISH","RABBIT","HAMSTER","TURTLE","SNAKE","OTHER"].map(s => (
+              <option key={s} value={s}>{s.charAt(0) + s.slice(1).toLowerCase()}</option>
             ))}
           </select>
         </label>

@@ -61,13 +61,23 @@ export interface Unit {
   occupancy_status:
     | "VACANT"
     | "OWNER_OCCUPIED"
-    | "RENTED";
+    | "RENTED"
+    | "TENANT_OCCUPIED";
   occupant_count?: number;
   parking_slots: number;
   owner_id: string | null;
   owner_name: string | null;
   tenant_id: string | null;
   tenant_name: string | null;
+}
+
+export function normalizeOccupancyStatus(
+  status: string | null | undefined
+): "VACANT" | "OWNER_OCCUPIED" | "RENTED" {
+  if (!status || status === "VACANT") return "VACANT";
+  if (status === "TENANT_OCCUPIED") return "RENTED";
+  if (status === "OWNER_OCCUPIED")  return "OWNER_OCCUPIED";
+  return "RENTED";
 }
 
 export interface ParkingSlot {
@@ -712,5 +722,22 @@ export const residentsApi = {
       );
 
     return extractData(response);
+  },
+
+  /* -------------------------------------------------- */
+  /* RESIDENTS DASHBOARD */
+  /* -------------------------------------------------- */
+
+  getDashboard: async (
+    params?: Record<string, unknown>
+  ) => {
+
+    const response =
+      await http.get(
+        "/residents/dashboard",
+        { params }
+      );
+
+    return (response.data as Record<string, unknown>) ?? {};
   },
 };
