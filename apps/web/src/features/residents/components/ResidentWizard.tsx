@@ -334,10 +334,10 @@ export default function ResidentWizard({ societyId, onClose }: { societyId: numb
           {mode === "TENANT" && step === 2 && (
             <div>
               <div className="mb-3 font-medium">Select Owner</div>
-              <div className="mb-2 text-xs text-gray-500">Choose an inactive owner to assign as owner for this tenant</div>
+              <div className="mb-2 text-xs text-gray-500">Choose an owner who lives elsewhere and whose unit is available for a new tenant</div>
               {inactiveOwners.length === 0 ? (
                 <div className="rounded-xl border border-dashed border-gray-200 p-6 text-center text-sm text-gray-600">
-                  No inactive owners available
+                  No available owners found. Either all owners have active tenants, or no inactive owners exist.
                 </div>
               ) : (
                 <Select value={selectedOwnerId} onChange={e => setSelectedOwnerId(e.target.value)}>

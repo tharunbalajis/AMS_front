@@ -104,7 +104,6 @@ const groups: NavGroup[] = [
       { label: "Categories",            to: "/complaints/categories",  permission: "complaints" },
       { label: "SLA Monitoring",        to: "/complaints/sla",         permission: "complaints" },
       { label: "Escalation Queue",      to: "/complaints/escalation",  permission: "complaints" },
-      { label: "Maintenance Requests",  to: "/complaints/maintenance", permission: "complaints" },
       { label: "Analytics",             to: "/complaints/analytics",   permission: "complaints" }
     ]
   },
