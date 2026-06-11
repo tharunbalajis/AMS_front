@@ -7,10 +7,10 @@ import { residentsApi } from "@/api/residents.api";
 import { useScope } from "@/app/scope/ScopeProvider";
 
 const STATUS_COLORS: Record<string, string> = {
-  AVAILABLE:   "bg-green-100 text-green-800",
-  OCCUPIED:    "bg-blue-100 text-blue-800",
-  RESERVED:    "bg-amber-100 text-amber-800",
-  MAINTENANCE: "bg-red-100 text-red-800",
+  AVAILABLE: "bg-green-100 text-green-800",
+  OCCUPIED:  "bg-blue-100 text-blue-800",
+  RESERVED:  "bg-amber-100 text-amber-800",
+  BLOCKED:   "bg-red-100 text-red-800",
 };
 
 const SLOT_TYPES = ["CAR", "BIKE", "TWO_WHEELER", "TRUCK", "OTHER"];
@@ -143,10 +143,10 @@ export function ParkingManagementPage() {
   const slots: ParkingSlot[] = slotsQ.data?.data ?? [];
 
   const stats = {
-    total:       slots.length,
-    available:   slots.filter(s => s.parking_status === "AVAILABLE").length,
-    occupied:    slots.filter(s => s.parking_status === "OCCUPIED").length,
-    maintenance: slots.filter(s => s.parking_status === "MAINTENANCE").length,
+    total:     slots.length,
+    available: slots.filter(s => s.parking_status === "AVAILABLE").length,
+    occupied:  slots.filter(s => s.parking_status === "OCCUPIED").length,
+    blocked:   slots.filter(s => s.parking_status === "BLOCKED").length,
   };
 
   const byBlock = blocks
@@ -192,7 +192,7 @@ export function ParkingManagementPage() {
           { label: "Total Slots",   value: stats.total,       color: "text-gray-900" },
           { label: "Available",     value: stats.available,   color: "text-green-700" },
           { label: "Occupied",      value: stats.occupied,    color: "text-blue-700" },
-          { label: "Maintenance",   value: stats.maintenance, color: "text-red-700" },
+          { label: "Blocked",   value: stats.blocked, color: "text-red-700" },
         ].map(c => (
           <div key={c.label} className="rounded-xl border bg-white p-4">
             <p className="text-xs text-gray-500">{c.label}</p>
@@ -218,7 +218,7 @@ export function ParkingManagementPage() {
               <option value="AVAILABLE">Available</option>
               <option value="OCCUPIED">Occupied</option>
               <option value="RESERVED">Reserved</option>
-              <option value="MAINTENANCE">Maintenance</option>
+              <option value="BLOCKED">Blocked</option>
             </select>
             <select
               value={blockFilter}
@@ -308,7 +308,7 @@ function SlotGrid({
             <option value="AVAILABLE">AVAILABLE</option>
             <option value="OCCUPIED">OCCUPIED</option>
             <option value="RESERVED">RESERVED</option>
-            <option value="MAINTENANCE">MAINTENANCE</option>
+            <option value="BLOCKED">BLOCKED</option>
           </select>
         </div>
       ))}

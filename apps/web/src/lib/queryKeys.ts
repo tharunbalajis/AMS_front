@@ -2,8 +2,8 @@
 export const QK = {
   societies: () => ["societies"] as const,
   blocks: (societyId: number) => ["blocks", societyId] as const,
-  units: (societyId: number, blockId?: number) =>
-    blockId ? (["units", societyId, blockId] as const) : (["units", societyId] as const),
+  units: (societyId: number, blockId?: number, occupancyStatus?: string) =>
+    ["units", societyId, blockId ?? null, occupancyStatus ?? "ALL"] as const,
   residents: (societyId: number, blockId?: number, unitId?: number) => {
     const base: (string | number)[] = ["residents", societyId];
     if (blockId) base.push(blockId);
