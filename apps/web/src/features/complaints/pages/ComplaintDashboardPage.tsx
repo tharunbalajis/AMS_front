@@ -1,7 +1,7 @@
 import { Card, StatusBadge } from "@ams/ui";
 import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { AlertCircle, AlertTriangle, CheckCircle, Clock, X, ExternalLink, ImageIcon, VideoIcon } from "lucide-react";
+import { AlertCircle, AlertTriangle, CheckCircle, Clock, XCircle, ExternalLink, ImageIcon, VideoIcon } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import {
   Bar, BarChart, CartesianGrid, Cell, Legend,
@@ -75,18 +75,62 @@ export function ComplaintDashboardPage() {
   const byStatus = d?.by_status as Record<string, number> | undefined ?? {};
 
   const getCount = (key: string) =>
-    byStatus[key] ?? byStatus[key.toLowerCase()] ?? 0;
+    Number(
+      byStatus[key.toUpperCase()] ??
+      byStatus[key.toLowerCase()] ??
+      0
+    );
 
-  const totalOpen = getCount("OPEN") + getCount("ASSIGNED") + getCount("IN_PROGRESS");
-  const critical  = Number(d?.critical_count ?? 0);
-  const slaBreached = Number(d?.sla_breach_count ?? 0);
+  const totalOpen     = getCount("OPEN") + getCount("ASSIGNED") + getCount("IN_PROGRESS");
+  const critical      = Number(d?.critical_count   ?? 0);
+  const slaBreached   = Number(d?.sla_breach_count ?? 0);
   const totalResolved = getCount("RESOLVED");
+  const totalClosed   = getCount("CLOSED");
+  const escalated     = Number(d?.escalated_count  ?? 0);
 
   const kpis = [
-    { label: "Total Open",     value: totalOpen,     icon: AlertCircle,   color: "bg-blue-100 text-blue-700",   nav: () => navigate("/complaints?status=OPEN") },
-    { label: "Critical",       value: critical,      icon: AlertTriangle, color: "bg-red-100 text-red-700",    nav: () => navigate("/complaints?priority=CRITICAL") },
-    { label: "SLA Breached",   value: slaBreached,   icon: Clock,         color: "bg-amber-100 text-amber-700", nav: () => navigate("/complaints?sla_breach=true") },
-    { label: "Resolved",       value: totalResolved, icon: CheckCircle,   color: "bg-green-100 text-green-700", nav: () => navigate("/complaints?status=RESOLVED") },
+    {
+      label: "Total Open",
+      value: totalOpen,
+      icon: AlertCircle,
+      color: "bg-blue-100 text-blue-700",
+      nav: () => navigate("/complaints?status=OPEN"),
+    },
+    {
+      label: "Critical",
+      value: critical,
+      icon: AlertTriangle,
+      color: "bg-red-100 text-red-700",
+      nav: () => navigate("/complaints?priority=CRITICAL"),
+    },
+    {
+      label: "SLA Breached",
+      value: slaBreached,
+      icon: Clock,
+      color: "bg-amber-100 text-amber-700",
+      nav: () => navigate("/complaints?sla_breach=true"),
+    },
+    {
+      label: "Resolved",
+      value: totalResolved,
+      icon: CheckCircle,
+      color: "bg-green-100 text-green-700",
+      nav: () => navigate("/complaints?status=RESOLVED"),
+    },
+    {
+      label: "Closed",
+      value: totalClosed,
+      icon: XCircle,
+      color: "bg-gray-100 text-gray-700",
+      nav: () => navigate("/complaints?status=CLOSED"),
+    },
+    {
+      label: "Escalated",
+      value: escalated,
+      icon: AlertTriangle,
+      color: "bg-red-200 text-red-800",
+      nav: () => navigate("/complaints?escalated=true"),
+    },
   ];
 
   const pieData = [
@@ -109,16 +153,25 @@ export function ComplaintDashboardPage() {
       </div>
 
       {/* KPI Cards — all clickable */}
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
         {kpis.map((kpi) => (
           <Card
             key={kpi.label}
-            className="p-5 cursor-pointer hover:shadow-md transition-shadow"
+            className={`p-5 cursor-pointer hover:shadow-md transition-shadow
+              ${kpi.label === "Escalated" && kpi.value > 0
+                ? "border-red-300 border-2 ring-1 ring-red-200"
+                : ""
+              }`}
             onClick={kpi.nav}
           >
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-500">{kpi.label}</p>
+                <div className="flex items-center gap-1.5">
+                  <p className="text-sm text-gray-500">{kpi.label}</p>
+                  {kpi.label === "Escalated" && kpi.value > 0 && (
+                    <span className="inline-block h-2 w-2 rounded-full bg-red-500 animate-pulse" />
+                  )}
+                </div>
                 {isLoading
                   ? <div className="mt-2 h-8 w-12 bg-gray-200 animate-pulse rounded" />
                   : <p className="mt-1 text-3xl font-bold text-gray-900">{kpi.value}</p>
@@ -300,7 +353,7 @@ export function ComplaintDashboardPage() {
                 onClick={() => setPopupFloor(null)}
                 className="rounded-full p-1.5 hover:bg-gray-100 text-gray-400"
               >
-                <X size={16} />
+                <XCircle size={16} />
               </button>
             </div>
 

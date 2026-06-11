@@ -14,7 +14,16 @@ export const complaintsApi = {
   // Dashboard (dedicated aggregation endpoint — returns by_status, critical_count, top_categories, etc.)
   getDashboard:  (params?: Record<string, unknown>) => http.get("/complaints/dashboard", { params }),
   getHeatmap:   (params?: Record<string, unknown>) => http.get("/complaints/heatmap", { params }),
+  getResidentsByUnit: (params?: Record<string, unknown>) =>
+    http.get("/complaints/residents-by-unit", { params }),
   getByFloor:   (params?: Record<string, unknown>) => http.get("/complaints/by-floor", { params }),
+  getSlaMonitoring: (params?: Record<string, unknown>) => http.get("/complaints/sla-monitoring", { params }),
+  getEscalationQueue: (params?: Record<string, unknown>) =>
+    http.get("/complaints/escalation-queue", { params }),
+  getStaffPerformance:  (params?: Record<string, unknown>) =>
+    http.get("/complaints/staff-performance",  { params }),
+  getRepeatComplaints:  (params?: Record<string, unknown>) =>
+    http.get("/complaints/repeat-complaints",  { params }),
 
   // Categories
   getCategories:    (params?: Record<string, unknown>) => http.get("/complaint-categories", { params }),

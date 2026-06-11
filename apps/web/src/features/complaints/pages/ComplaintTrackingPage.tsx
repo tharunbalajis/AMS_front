@@ -22,6 +22,8 @@ export function ComplaintTrackingPage() {
   const [search,      setSearch]      = useState("");
   const [status,      setStatus]      = useState("");
   const [priority,    setPriority]    = useState("");
+  const [escalated,   setEscalated]   = useState(searchParams.get("escalated") ?? "");
+  const [slaStatus,   setSlaStatus]   = useState(searchParams.get("sla_status") ?? "");
   const [assigned,    setAssigned]    = useState("");
   const [catId,       setCatId]       = useState("");
   const [unitSearch,  setUnitSearch]  = useState("");
@@ -35,13 +37,14 @@ export function ComplaintTrackingPage() {
     const statusParam = searchParams.get("status");
     const priorityParam = searchParams.get("priority");
     const slaBreachParam = searchParams.get("sla_breach");
-    
-    if (statusParam) setStatus(statusParam.toUpperCase());
-    if (priorityParam) setPriority(priorityParam.toUpperCase());
+    const escalatedParam = searchParams.get("escalated");
+
+    setStatus(statusParam ? statusParam.toUpperCase() : "");
+    setPriority(priorityParam ? priorityParam.toUpperCase() : "");
     if (slaBreachParam === "true") {
-      // Handle SLA breach filter - this would need backend support or client-side logic
-      // For now, just note it could be added later
+      // SLA breach query param is supported by backend via the same filter key.
     }
+    setEscalated(escalatedParam ?? "");
   }, [searchParams]);
 
   // Categories for the dropdown filter
@@ -62,11 +65,13 @@ export function ComplaintTrackingPage() {
 
   // Complaints with server-side filters
   const { data: raw, isLoading } = useQuery({
-    queryKey: ["complaints-tracking", validSocietyId, status, priority, catId, unitSearch, createdDate, search, blockFilter, floorFilter],
+    queryKey: ["complaints-tracking", validSocietyId, status, priority, escalated, slaStatus, catId, unitSearch, createdDate, search, blockFilter, floorFilter],
     queryFn: () => complaintsApi.getAll({
       society_id: validSocietyId,
       status:       status       || undefined,
       priority:     priority     || undefined,
+      escalated:    escalated    || undefined,
+      sla_breach:   slaStatus === "breached" ? "true" : undefined,
       cat_id:       catId        || undefined,
       unit_number:  unitSearch   || undefined,
       created_date: createdDate  || undefined,
@@ -92,6 +97,26 @@ export function ComplaintTrackingPage() {
   // Client-side assigned filter only
   if (assigned === "unassigned") rows = rows.filter((r) => !r.assigned_to && !r.assigned_to_name);
   if (assigned === "assigned")   rows = rows.filter((r) => !!r.assigned_to || !!r.assigned_to_name);
+
+  // Client-side SLA status filtering for at-risk / on-track values
+  if (slaStatus === "at_risk") {
+    rows = rows.filter((r) => {
+      if (r.sla_breach) return false;
+      const elapsed = Number(r.hours_elapsed ?? (r.created_at ? (Date.now() - new Date(String(r.created_at)).getTime()) / 3600000 : 0));
+      const slaHours = Number(r.sla_hours ?? 48);
+      const pct = slaHours > 0 ? (elapsed / slaHours) * 100 : 0;
+      const statusValue = String(r.status ?? "").toLowerCase();
+      return pct >= 75 && statusValue !== "resolved" && statusValue !== "closed";
+    });
+  } else if (slaStatus === "on_track") {
+    rows = rows.filter((r) => {
+      if (r.sla_breach) return false;
+      const elapsed = Number(r.hours_elapsed ?? (r.created_at ? (Date.now() - new Date(String(r.created_at)).getTime()) / 3600000 : 0));
+      const slaHours = Number(r.sla_hours ?? 48);
+      const pct = slaHours > 0 ? (elapsed / slaHours) * 100 : 0;
+      return pct < 75;
+    });
+  }
 
   const handleExport = () => {
     const csv = [
@@ -152,6 +177,16 @@ export function ComplaintTrackingPage() {
           <option value="MEDIUM">Medium</option>
           <option value="LOW">Low</option>
         </Select>
+        <Select className="w-44" value={escalated} onChange={(e) => setEscalated(e.target.value)}>
+          <option value="">All Escalation</option>
+          <option value="true">Escalated Only</option>
+        </Select>
+        <Select className="w-44" value={slaStatus} onChange={(e) => setSlaStatus(e.target.value)}>
+          <option value="">All SLA Status</option>
+          <option value="breached">SLA Breached</option>
+          <option value="at_risk">At Risk (&gt;75%)</option>
+          <option value="on_track">On Track</option>
+        </Select>
         <Select className="w-44" value={assigned} onChange={(e) => setAssigned(e.target.value)}>
           <option value="">All Assigned</option>
           <option value="unassigned">Unassigned</option>
@@ -211,7 +246,10 @@ export function ComplaintTrackingPage() {
             ) : rows.length === 0 ? (
               <tr><td colSpan={10} className="px-4 py-8 text-center text-gray-400">No records found</td></tr>
             ) : rows.map((row) => (
-              <tr key={String(row.id ?? "")} className="hover:bg-gray-50">
+              <tr
+                key={String(row.id ?? "")}
+                className={`hover:bg-gray-50 cursor-pointer ${String(row.is_escalated) === 'true' ? 'bg-red-50 border-l-4 border-l-red-400' : ''}`}
+              >
                 <td className="px-4 py-3">
                   <button
                     onClick={() => navigate(`/complaints/${String(row.id ?? "")}`)}
@@ -231,7 +269,38 @@ export function ComplaintTrackingPage() {
                     {String(row.priority ?? "")}
                   </span>
                 </td>
-                <td className="px-4 py-3"><StatusBadge value={row.status} /></td>
+                <td className="px-4 py-3">
+                  <div className="flex items-center gap-2">
+                    <StatusBadge value={row.status} />
+                    {(() => {
+                      const elapsed = Number(row.hours_elapsed ?? (row.created_at ? (Date.now() - new Date(String(row.created_at)).getTime()) / 3600000 : 0));
+                      const slaHours = Number(row.sla_hours ?? 48);
+                      const pct = slaHours > 0 ? (elapsed / slaHours) * 100 : 0;
+                      const statusValue = String(row.status ?? "").toLowerCase();
+                      const isResolved = statusValue === "resolved" || statusValue === "closed";
+                      if (row.sla_breach || (!isResolved && pct >= 100)) {
+                        return (
+                          <span className="ml-1 rounded-full bg-red-100 px-1.5 py-0.5 text-xs font-bold text-red-700">
+                            ⚠ SLA
+                          </span>
+                        );
+                      }
+                      if (!isResolved && pct >= 75) {
+                        return (
+                          <span className="ml-1 rounded-full bg-amber-100 px-1.5 py-0.5 text-xs font-bold text-amber-700">
+                            ⏰ Risk
+                          </span>
+                        );
+                      }
+                      return null;
+                    })()}
+                    {(String(row.is_escalated) === 'true' || escalated === 'true') && (
+                      <span className="ml-1 rounded-full bg-red-100 px-1.5 py-0.5 text-xs font-bold text-red-700 border border-red-300">
+                        ⬆ ESC
+                      </span>
+                    )}
+                  </div>
+                </td>
                 <td className="px-4 py-3 text-gray-600">{String(row.unit_number ?? "—")}</td>
                 <td className="px-4 py-3 text-gray-600">{String(row.assigned_to_name ?? "Unassigned")}</td>
                 <td className="px-4 py-3 text-gray-500 text-xs">{String(row.created_at ?? "")}</td>
