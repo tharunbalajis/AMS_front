@@ -6,10 +6,12 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { residentsApi } from "@/api/residents.api";
 import { useScope } from "@/app/scope/ScopeProvider";
+import { VehicleFormFields, EMPTY_VEHICLE, type VehicleFormData } from "../components/VehicleFormFields";
 
 function AddVehicleModal({ societyId, onClose }: { societyId: number; onClose: () => void }) {
   const qc = useQueryClient();
-  const [form, setForm] = useState({ resident_id: "", unit_id: "", vehicle_type: "CAR", make: "", model: "", color: "", registration_no: "", parking_slot: "" });
+  const [residentId, setResidentId] = useState("");
+  const [vehicleForm, setVehicleForm] = useState<VehicleFormData>({ ...EMPTY_VEHICLE });
 
   const residentsQuery = useQuery({
     queryKey: ["residents-simple", societyId],
@@ -17,35 +19,37 @@ function AddVehicleModal({ societyId, onClose }: { societyId: number; onClose: (
     enabled: !!societyId,
   });
   const residents = normalizeList<Record<string, unknown>>(residentsQuery.data?.data ?? residentsQuery.data);
+
   const mutation = useMutation({
-    mutationFn: () => {
-      const payload = {
-        ...form,
-        society_id: societyId,
-        unit_id: form.unit_id ? Number(form.unit_id) : undefined,
-      };
-      return residentsApi.addVehicle(payload);
-    },
+    mutationFn: () => residentsApi.addVehicle({
+      resident_id: residentId,
+      society_id: societyId,
+      ...vehicleForm,
+      fuel_type:      vehicleForm.fuel_type      || null,
+      rfid_tag:       vehicleForm.rfid_tag       || null,
+      sticker_number: vehicleForm.sticker_number || null,
+      notes:          vehicleForm.notes          || null,
+      parking_slot:   vehicleForm.parking_slot   || null,
+    }),
     onSuccess: () => { toast.success("Vehicle added"); qc.invalidateQueries({ queryKey: ["vehicles"] }); onClose(); },
     onError: (e: any) => toast.error(e?.response?.data?.message ?? (e as Error).message ?? "Failed to add vehicle"),
   });
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
-      <div className="w-full max-w-lg rounded-xl bg-white shadow-2xl">
+      <div className="w-full max-w-xl rounded-xl bg-white shadow-2xl">
         <div className="flex items-center justify-between border-b px-6 py-4">
           <h2 className="text-base font-semibold">Add Vehicle</h2>
           <button onClick={onClose} className="rounded-lg p-1.5 hover:bg-gray-100"><X size={18} /></button>
         </div>
-        <div className="grid grid-cols-2 gap-4 p-6">
+        <div className="max-h-[72vh] space-y-4 overflow-y-auto p-6">
           <label className="col-span-2 block">
             <span className="mb-1 block text-sm font-medium text-gray-700">Resident *</span>
-            <select value={form.resident_id}
-              onChange={e => {
-                const r = residents.find(x => String(x.resident_id ?? x.id) === e.target.value);
-                setForm(f => ({ ...f, resident_id: e.target.value, unit_id: r ? String(r.unit_id ?? "") : "" }));
-              }}
-              className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm">
+            <select
+              value={residentId}
+              onChange={e => setResidentId(e.target.value)}
+              className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm"
+            >
               <option value="">Select resident</option>
               {residents.map(r => {
                 const rid = String(r.resident_id ?? r.id ?? "");
@@ -53,43 +57,15 @@ function AddVehicleModal({ societyId, onClose }: { societyId: number; onClose: (
               })}
             </select>
           </label>
-          <label className="block">
-            <span className="mb-1 block text-sm font-medium text-gray-700">Registration No *</span>
-            <input value={form.registration_no} onChange={e => setForm(f => ({ ...f, registration_no: e.target.value }))} placeholder="KA-01-AB-1234"
-              className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm" />
-          </label>
-          <label className="block">
-            <span className="mb-1 block text-sm font-medium text-gray-700">Type *</span>
-            <select value={form.vehicle_type} onChange={e => setForm(f => ({ ...f, vehicle_type: e.target.value }))}
-              className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm">
-              {["CAR","BIKE","TRUCK","SCOOTER","OTHER"].map(t => <option key={t} value={t}>{t}</option>)}
-            </select>
-          </label>
-          <label className="block">
-            <span className="mb-1 block text-sm font-medium text-gray-700">Make</span>
-            <input value={form.make} onChange={e => setForm(f => ({ ...f, make: e.target.value }))} placeholder="Maruti, Honda..."
-              className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm" />
-          </label>
-          <label className="block">
-            <span className="mb-1 block text-sm font-medium text-gray-700">Model</span>
-            <input value={form.model} onChange={e => setForm(f => ({ ...f, model: e.target.value }))} placeholder="Swift, City..."
-              className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm" />
-          </label>
-          <label className="block">
-            <span className="mb-1 block text-sm font-medium text-gray-700">Color</span>
-            <input value={form.color} onChange={e => setForm(f => ({ ...f, color: e.target.value }))} placeholder="White, Black..."
-              className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm" />
-          </label>
-          <label className="block">
-            <span className="mb-1 block text-sm font-medium text-gray-700">Parking Slot</span>
-            <input value={form.parking_slot} onChange={e => setForm(f => ({ ...f, parking_slot: e.target.value }))} placeholder="P-01"
-              className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm" />
-          </label>
+          <VehicleFormFields value={vehicleForm} onChange={setVehicleForm} societyId={societyId} />
         </div>
         <div className="flex justify-end gap-3 border-t px-6 py-4">
           <button onClick={onClose} className="rounded-lg border px-4 py-2 text-sm">Cancel</button>
-          <button disabled={!form.resident_id || !form.registration_no || mutation.isPending} onClick={() => mutation.mutate()}
-            className="flex items-center gap-2 rounded-lg bg-blue-600 px-5 py-2 text-sm font-medium text-white disabled:opacity-60">
+          <button
+            disabled={!residentId || !vehicleForm.registration_no || mutation.isPending}
+            onClick={() => mutation.mutate()}
+            className="flex items-center gap-2 rounded-lg bg-blue-600 px-5 py-2 text-sm font-medium text-white disabled:opacity-60"
+          >
             {mutation.isPending && <Loader2 size={14} className="animate-spin" />} Add Vehicle
           </button>
         </div>

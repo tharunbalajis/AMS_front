@@ -1,15 +1,16 @@
 import React, { useMemo, useState } from "react";
 import { Button, Card, Input, Select } from "@ams/ui";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { UserCheck, UserCog, Check, Loader2 } from "lucide-react";
+import { UserCheck, UserCog, Check, Loader2, PawPrint, Car, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { residentsApi } from "@/api/residents.api";
-import { parkingApi, type ParkingSlot } from "@/api/parking.api";
 import { useDynamicBlocks } from "@/hooks/useDynamicBlocks";
 import { useDynamicUnits } from "@/hooks/useDynamicUnits";
 import { useFilterReset } from "@/hooks/useFilterReset";
 import { useScopedInvalidate } from "@/hooks/useScopedInvalidate";
 import { QK } from "@/lib/queryKeys";
+import { PetFormFields, EMPTY_PET, type PetFormData } from "./PetFormFields";
+import { VehicleFormFields, EMPTY_VEHICLE, type VehicleFormData } from "./VehicleFormFields";
 
 type WizardMode = "OWNER" | "TENANT";
 
@@ -46,9 +47,9 @@ export default function ResidentWizard({ societyId, onClose }: { societyId: numb
   const [securityDeposit, setSecurityDeposit] = useState("");
   const [leaseFile, setLeaseFile] = useState<File | null>(null);
 
-  // Pets & vehicles
-  const [pets, setPets] = useState<Array<{ name: string; type: string; breed?: string; age?: string }>>([]);
-  const [vehicles, setVehicles] = useState<Array<{ type: string; make?: string; model?: string; registration_no?: string; parking_slot?: string }>>([]);
+  // Pets & vehicles — typed with full form data
+  const [pets, setPets] = useState<PetFormData[]>([]);
+  const [vehicles, setVehicles] = useState<VehicleFormData[]>([]);
 
   // Block cascade for OWNER: clear selected unit when block changes
   useFilterReset(wizardBlockId, () => setSelectedUnit(""));
@@ -69,16 +70,6 @@ export default function ResidentWizard({ societyId, onClose }: { societyId: numb
   const inactiveOwners: any[] = Array.isArray(inactiveOwnersQ.data)
     ? inactiveOwnersQ.data
     : ((inactiveOwnersQ.data as any)?.data ?? []);
-
-  // Available parking slots — fetched lazily when user reaches vehicle step
-  const [parkingEnabled, setParkingEnabled] = useState(false);
-  const parkingSlotsQ = useQuery({
-    queryKey: ["parking-slots-available", societyId],
-    queryFn: () => parkingApi.getSlots({ society_id: societyId, parking_status: "AVAILABLE", page_size: 500 }),
-    enabled: !!societyId && parkingEnabled,
-    staleTime: 60_000,
-  });
-  const parkingSlots: ParkingSlot[] = parkingSlotsQ.data?.data ?? [];
 
   // Validation
   const isPhoneValid = (p: string) => /^[0-9]{10}$/.test(p.trim());
@@ -127,10 +118,29 @@ export default function ResidentWizard({ societyId, onClose }: { societyId: numb
         const newResident = (res && (res as any).data) ?? res;
         const residentId = String(newResident?.id ?? newResident?.resident_id ?? "");
         for (const p of pets) {
-          await residentsApi.addPet({ resident_id: residentId, pet_name: p.name, species: p.type, breed: p.breed || null, age: p.age || null, society_id: societyId });
+          await residentsApi.addPet({
+            resident_id: residentId, society_id: societyId,
+            ...p,
+            age_years:        p.age_years        ? Number(p.age_years)  : null,
+            weight_kg:        p.weight_kg        ? Number(p.weight_kg)  : null,
+            vaccination_date: p.vaccination_date || null,
+            nickname:         p.nickname         || null,
+            color:            p.color            || null,
+            gender:           p.gender           || null,
+            medical_notes:    p.medical_notes    || null,
+            notes:            p.notes            || null,
+          });
         }
         for (const v of vehicles) {
-          await residentsApi.addVehicle({ resident_id: residentId, vehicle_type: v.type, make: v.make, model: v.model, registration_no: v.registration_no, parking_slot: v.parking_slot, society_id: societyId });
+          await residentsApi.addVehicle({
+            resident_id: residentId, society_id: societyId,
+            ...v,
+            fuel_type:      v.fuel_type      || null,
+            rfid_tag:       v.rfid_tag       || null,
+            sticker_number: v.sticker_number || null,
+            notes:          v.notes          || null,
+            parking_slot:   v.parking_slot   || null,
+          });
         }
         return residentId;
       }
@@ -156,14 +166,32 @@ export default function ResidentWizard({ societyId, onClose }: { societyId: numb
       const newResident = (res && (res as any).data) ?? res;
       const residentId = String(newResident?.id ?? newResident?.resident_id ?? "");
       if (moveInDate) {
-        // TODO: upload leaseFile to storage and replace "pending_upload" with real URL
         await residentsApi.createLease({ resident_id: residentId, tenant_resident_id: residentId, owner_resident_id: selectedOwnerId || null, lease_start: moveInDate, lease_end: moveOutDate || null, rent_monthly: monthlyRent ? Number(monthlyRent) : null, security_deposit: securityDeposit ? Number(securityDeposit) : null, lease_url: leaseFile ? 'pending_upload' : null, society_id: societyId });
       }
       for (const p of pets) {
-        await residentsApi.addPet({ resident_id: residentId, pet_name: p.name, species: p.type, breed: p.breed || null, age: p.age || null, society_id: societyId });
+        await residentsApi.addPet({
+          resident_id: residentId, society_id: societyId,
+          ...p,
+          age_years:        p.age_years        ? Number(p.age_years)  : null,
+          weight_kg:        p.weight_kg        ? Number(p.weight_kg)  : null,
+          vaccination_date: p.vaccination_date || null,
+          nickname:         p.nickname         || null,
+          color:            p.color            || null,
+          gender:           p.gender           || null,
+          medical_notes:    p.medical_notes    || null,
+          notes:            p.notes            || null,
+        });
       }
       for (const v of vehicles) {
-        await residentsApi.addVehicle({ resident_id: residentId, vehicle_type: v.type, make: v.make, model: v.model, registration_no: v.registration_no, parking_slot: v.parking_slot, society_id: societyId });
+        await residentsApi.addVehicle({
+          resident_id: residentId, society_id: societyId,
+          ...v,
+          fuel_type:      v.fuel_type      || null,
+          rfid_tag:       v.rfid_tag       || null,
+          sticker_number: v.sticker_number || null,
+          notes:          v.notes          || null,
+          parking_slot:   v.parking_slot   || null,
+        });
       }
       return residentId;
     },
@@ -413,56 +441,93 @@ export default function ResidentWizard({ societyId, onClose }: { societyId: numb
           {/* Pets step */}
           {mode && ((mode === "OWNER" && step === 5 && ownerStatus === "ACTIVE") || (mode === "TENANT" && step === 5)) && (
             <div>
-              <div className="mb-2 font-medium">Pets</div>
-              {pets.length === 0 && <div className="mb-2 text-sm text-gray-500">No pets added</div>}
-              {pets.map((p, idx) => (
-                <div key={idx} className="mb-2 flex items-center gap-2">
-                  <div className="flex-1">
-                    <Input value={p.name} placeholder="Pet name" onChange={(e: any) => setPets(prev => prev.map((x, i) => i === idx ? { ...x, name: e.target.value } : x))} />
-                  </div>
-                  <Select value={p.type} onChange={(e: any) => setPets(prev => prev.map((x, i) => i === idx ? { ...x, type: e.target.value } : x))}>
-                    <option value="DOG">Dog</option>
-                    <option value="CAT">Cat</option>
-                    <option value="OTHER">Other</option>
-                  </Select>
-                  <button className="text-sm text-red-600" onClick={() => setPets(prev => prev.filter((_, i) => i !== idx))}>Remove</button>
+              <div className="mb-3 flex items-center justify-between">
+                <div className="flex items-center gap-2 font-medium">
+                  <PawPrint size={16} className="text-amber-500" /> Pets
+                  <span className="ml-1 text-sm font-normal text-gray-500">({pets.length} added)</span>
                 </div>
-              ))}
-              <button className="rounded bg-blue-600 px-3 py-1 text-sm text-white" onClick={() => setPets(prev => [...prev, { name: "", type: "DOG" }])}>Add Pet</button>
+                <button
+                  type="button"
+                  className="flex items-center gap-1 rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-700"
+                  onClick={() => setPets(prev => [...prev, { ...EMPTY_PET }])}
+                >
+                  <Plus size={13} /> Add Pet
+                </button>
+              </div>
+              {pets.length === 0 && (
+                <div className="rounded-xl border border-dashed border-gray-200 p-8 text-center text-sm text-gray-500">
+                  No pets added. Click "Add Pet" to register a pet for this resident.
+                </div>
+              )}
+              <div className="max-h-[52vh] space-y-4 overflow-y-auto pr-1">
+                {pets.map((p, idx) => (
+                  <div key={idx} className="rounded-xl border border-gray-200 p-4">
+                    <div className="mb-3 flex items-center justify-between">
+                      <span className="text-sm font-medium text-gray-700">
+                        Pet {idx + 1}{p.pet_name ? ` — ${p.pet_name}` : ""}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => setPets(prev => prev.filter((_, i) => i !== idx))}
+                        className="flex items-center gap-1 rounded-lg px-2 py-1 text-xs text-red-500 hover:bg-red-50"
+                      >
+                        <Trash2 size={12} /> Remove
+                      </button>
+                    </div>
+                    <PetFormFields
+                      value={p}
+                      onChange={updated => setPets(prev => prev.map((x, i) => i === idx ? updated : x))}
+                    />
+                  </div>
+                ))}
+              </div>
             </div>
           )}
 
           {/* Vehicles step */}
           {mode && ((mode === "OWNER" && step === 6 && ownerStatus === "ACTIVE") || (mode === "TENANT" && step === 6)) && (
             <div>
-              <div className="mb-2 font-medium">Vehicles</div>
-              {vehicles.length === 0 && <div className="mb-2 text-sm text-gray-500">No vehicles added</div>}
-              {vehicles.map((v, idx) => (
-                <div key={idx} className="mb-2 grid grid-cols-3 items-center gap-2">
-                  <Select value={v.type} onChange={(e: any) => setVehicles(prev => prev.map((x, i) => i === idx ? { ...x, type: e.target.value } : x))}>
-                    <option value="CAR">CAR</option>
-                    <option value="BIKE">BIKE</option>
-                    <option value="OTHER">OTHER</option>
-                  </Select>
-                  <Input value={v.registration_no} placeholder="Reg. no" onChange={(e: any) => setVehicles(prev => prev.map((x, i) => i === idx ? { ...x, registration_no: e.target.value } : x))} />
-                  <Select
-                    value={v.parking_slot || ""}
-                    onChange={(e: any) => setVehicles(prev => prev.map((x, i) => i === idx ? { ...x, parking_slot: e.target.value } : x))}
-                    onFocus={() => setParkingEnabled(true)}
-                  >
-                    <option value="">Select parking</option>
-                    {parkingSlots.map(p => (
-                      <option key={p.id} value={p.slot_code}>
-                        {p.slot_code} ({p.slot_type})
-                      </option>
-                    ))}
-                  </Select>
-                  <div className="col-span-3 text-right">
-                    <button className="text-sm text-red-600" onClick={() => setVehicles(prev => prev.filter((_, i) => i !== idx))}>Remove</button>
-                  </div>
+              <div className="mb-3 flex items-center justify-between">
+                <div className="flex items-center gap-2 font-medium">
+                  <Car size={16} className="text-blue-500" /> Vehicles
+                  <span className="ml-1 text-sm font-normal text-gray-500">({vehicles.length} added)</span>
                 </div>
-              ))}
-              <button className="rounded bg-blue-600 px-3 py-1 text-sm text-white" onClick={() => setVehicles(prev => [...prev, { type: "CAR", registration_no: "", parking_slot: "" }])}>Add Vehicle</button>
+                <button
+                  type="button"
+                  className="flex items-center gap-1 rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-700"
+                  onClick={() => setVehicles(prev => [...prev, { ...EMPTY_VEHICLE }])}
+                >
+                  <Plus size={13} /> Add Vehicle
+                </button>
+              </div>
+              {vehicles.length === 0 && (
+                <div className="rounded-xl border border-dashed border-gray-200 p-8 text-center text-sm text-gray-500">
+                  No vehicles added. Click "Add Vehicle" to register a vehicle for this resident.
+                </div>
+              )}
+              <div className="max-h-[52vh] space-y-4 overflow-y-auto pr-1">
+                {vehicles.map((v, idx) => (
+                  <div key={idx} className="rounded-xl border border-gray-200 p-4">
+                    <div className="mb-3 flex items-center justify-between">
+                      <span className="text-sm font-medium text-gray-700">
+                        Vehicle {idx + 1}{v.registration_no ? ` — ${v.registration_no}` : ""}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => setVehicles(prev => prev.filter((_, i) => i !== idx))}
+                        className="flex items-center gap-1 rounded-lg px-2 py-1 text-xs text-red-500 hover:bg-red-50"
+                      >
+                        <Trash2 size={12} /> Remove
+                      </button>
+                    </div>
+                    <VehicleFormFields
+                      value={v}
+                      onChange={updated => setVehicles(prev => prev.map((x, i) => i === idx ? updated : x))}
+                      societyId={societyId}
+                    />
+                  </div>
+                ))}
+              </div>
             </div>
           )}
 
@@ -489,11 +554,31 @@ export default function ResidentWizard({ societyId, onClose }: { societyId: numb
               </div>
               <div className="mb-3 rounded border p-3">
                 <div className="font-semibold">Pets</div>
-                <div className="text-sm">{pets.length ? pets.map(p => p.name).join(", ") : "—"}</div>
+                {pets.length === 0 ? (
+                  <div className="text-sm text-gray-400">None</div>
+                ) : (
+                  <ul className="mt-1 space-y-0.5 text-sm">
+                    {pets.map((p, i) => (
+                      <li key={i} className="text-gray-700">
+                        {p.pet_name || "(unnamed)"} — {p.species}{p.breed ? `, ${p.breed}` : ""}{p.is_aggressive ? " ⚠️" : ""}
+                      </li>
+                    ))}
+                  </ul>
+                )}
               </div>
               <div className="mb-3 rounded border p-3">
                 <div className="font-semibold">Vehicles</div>
-                <div className="text-sm">{vehicles.length ? vehicles.map(v => v.registration_no).join(", ") : "—"}</div>
+                {vehicles.length === 0 ? (
+                  <div className="text-sm text-gray-400">None</div>
+                ) : (
+                  <ul className="mt-1 space-y-0.5 text-sm">
+                    {vehicles.map((v, i) => (
+                      <li key={i} className="text-gray-700">
+                        {v.registration_no || "(no reg)"} — {v.vehicle_type}{v.make ? `, ${v.make}` : ""}{v.parking_slot ? ` · Slot: ${v.parking_slot}` : ""}
+                      </li>
+                    ))}
+                  </ul>
+                )}
               </div>
             </div>
           )}
